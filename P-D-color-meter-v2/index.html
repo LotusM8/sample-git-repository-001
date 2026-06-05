@@ -10,199 +10,259 @@
 <style>
   :root{
     --bg:#0d0f12; --panel:#15191f; --line:#262c35;
-    --text:#eef2f6; --dim:#8b96a5;
-    --warn:#f2b34a;   /* 琥珀：赤緑色弱でも見えやすい */
-    --ok:#46c8d8;     /* 青緑：同上 */
+    --text:#eef2f6; --dim:#9aa6b4;
+    --warn:#f2b34a; --ok:#46c8d8;
     --mono:'DM Mono', ui-monospace, monospace;
     --sans:'Manrope', system-ui, sans-serif;
   }
   *{box-sizing:border-box; margin:0; padding:0}
   body{background:var(--bg); color:var(--text); font-family:var(--sans);
-    min-height:100vh; padding:16px; display:flex; flex-direction:column;
-    align-items:center; gap:12px}
-  h1{font-size:15px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); font-weight:600}
-  .wrap{width:100%; max-width:460px; display:flex; flex-direction:column; gap:12px}
-  .sectitle{font-size:11px; letter-spacing:.08em; color:var(--dim); text-transform:uppercase; margin:2px 0 -2px 4px}
+    font-size:16px; line-height:1.5; min-height:100vh; padding:16px;
+    display:flex; flex-direction:column; align-items:center}
+  main{width:100%; max-width:460px; display:flex; flex-direction:column; gap:14px}
+  h1{font-size:16px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); font-weight:600; text-align:center}
+  h2{font-size:16px; font-weight:700; color:var(--text); margin-bottom:2px}
+  section{display:flex; flex-direction:column; gap:10px}
+  p{font-size:16px}
 
-  /* カメラ */
+  /* カメラ映像 */
   .stage{position:relative; width:100%; aspect-ratio:4/3; background:#000;
     border-radius:14px; overflow:hidden; border:1px solid var(--line)}
   video{width:100%; height:100%; object-fit:cover; display:block}
-  .reticle{position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:40px; height:40px; pointer-events:none}
-  .reticle-box{position:absolute; inset:0; border:2px solid #fff; box-shadow:0 0 0 1px rgba(0,0,0,.7); border-radius:4px}
+  .reticle{position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    width:46px; height:46px; pointer-events:none; border:2px solid #fff;
+    box-shadow:0 0 0 1px rgba(0,0,0,.7); border-radius:4px}
 
-  /* メイン読み取り */
+  /* ボタン（モニタ直下） */
+  .controls{display:flex; flex-direction:column; gap:9px}
+  .controls .row{display:flex; gap:9px}
+  button{flex:1; padding:13px 10px; border-radius:12px; border:1px solid var(--line);
+    background:var(--panel); color:var(--text); font-family:var(--sans);
+    font-weight:600; font-size:16px; cursor:pointer; min-height:48px}
+  button:active{transform:scale(.98)}
+  button.primary{background:var(--text); color:#000; border-color:var(--text)}
+
+  /* 測定範囲（レティクル） */
+  .reticle-ctrl p{font-size:16px; color:var(--dim)}
+  .seg{display:flex; gap:8px}
+  .seg button{font-family:var(--mono)}
+  .seg button[aria-pressed="true"]{background:var(--text); color:#000; border-color:var(--text)}
+
+  /* 測定結果 */
   .readout{display:flex; gap:14px; align-items:stretch}
-  .swatch{flex:0 0 92px; border-radius:14px; border:1px solid var(--line); background:#333; min-height:92px}
+  .swatch{flex:0 0 92px; min-height:92px; border-radius:14px; border:1px solid var(--line); background:#333; margin:0}
   .info{flex:1; display:flex; flex-direction:column; justify-content:center; gap:4px}
-  .name{font-size:28px; font-weight:800; line-height:1.1}
-  .hex{font-family:var(--mono); font-size:15px; color:var(--dim); letter-spacing:.04em}
+  .name{font-size:30px; font-weight:800; line-height:1.1}
+  .hex{font-family:var(--mono); font-size:16px; color:var(--dim); letter-spacing:.04em}
 
   /* RGB バー */
-  .bars{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px; display:flex; flex-direction:column; gap:11px}
-  .bar-row{display:grid; grid-template-columns:60px 1fr 52px; align-items:center; gap:10px}
-  .bar-label{font-family:var(--mono); font-size:13px; color:var(--dim)}
-  .bar-track{height:16px; background:#0a0c0f; border-radius:8px; overflow:hidden; border:1px solid var(--line)}
-  .bar-fill{height:100%; width:0; border-radius:8px; transition:width .12s linear}
-  .bar-val{font-family:var(--mono); font-size:17px; text-align:right}
-
-  /* 色弱シミュレーション */
-  .sim{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:12px; display:flex; flex-direction:column; gap:10px}
-  .sim-swatches{display:flex; gap:8px}
-  .sim-col{flex:1; display:flex; flex-direction:column; gap:5px; align-items:center}
-  .sim-box{width:100%; aspect-ratio:2/1; border-radius:9px; border:1px solid var(--line); background:#333}
-  .sim-cap{font-size:11px; color:var(--dim); text-align:center; line-height:1.3}
-  .sev{display:flex; align-items:center; gap:10px; font-size:12px; color:var(--dim)}
-  .sev input{flex:1}
+  .bars{list-style:none; background:var(--panel); border:1px solid var(--line);
+    border-radius:14px; padding:14px; display:flex; flex-direction:column; gap:12px}
+  .bar-row{display:grid; grid-template-columns:76px 1fr 56px; align-items:center; gap:10px}
+  .bar-label{font-family:var(--mono); font-size:16px; color:var(--dim)}
+  .bar-track{height:18px; background:#0a0c0f; border-radius:9px; overflow:hidden; border:1px solid var(--line)}
+  .bar-fill{height:100%; width:0; border-radius:9px; transition:width .12s linear}
+  .bar-val{font-family:var(--mono); font-size:18px; text-align:right}
 
   /* 見分け注意度 */
-  .risk{border:1px solid var(--line); border-radius:14px; padding:13px 14px; display:flex; align-items:center; gap:12px}
-  .risk-badge{font-family:var(--mono); font-weight:500; font-size:15px; padding:5px 12px; border-radius:8px; white-space:nowrap; border:1.5px solid var(--line)}
-  .risk-text{font-size:13px; line-height:1.5}
+  .risk{border:1px solid var(--line); border-radius:14px; padding:13px 14px;
+    display:flex; align-items:center; gap:12px}
+  .risk-badge{font-family:var(--mono); font-weight:500; font-size:16px; padding:6px 12px;
+    border-radius:8px; white-space:nowrap; border:1.5px solid var(--line)}
+  .risk-text{font-size:16px}
+
+  /* シミュレーション（小映像をD型/P型で同時表示） */
+  .sim-views{display:flex; gap:8px}
+  .sim-views figure{flex:1; display:flex; flex-direction:column; gap:6px; align-items:center; margin:0}
+  .sim-views canvas{width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:9px;
+    border:1px solid var(--line); background:#000; display:block}
+  .sim-views figcaption{font-size:16px; color:var(--dim); text-align:center; line-height:1.3}
+  .sev{display:flex; align-items:center; gap:10px; font-size:16px; color:var(--dim)}
+  .sev input{flex:1; min-height:36px}
+  .sev output{font-family:var(--mono); font-size:16px; color:var(--text)}
 
   /* 基準色比較 */
   .compare{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:13px; display:flex; flex-direction:column; gap:11px}
   .cmp-top{display:flex; gap:12px; align-items:center}
-  .cmp-ref{flex:0 0 52px; height:52px; border-radius:10px; border:1px solid var(--line); background:#222}
+  .cmp-ref{flex:0 0 56px; height:56px; border-radius:10px; border:1px solid var(--line); background:#222}
   .cmp-btns{flex:1; display:flex; gap:8px}
-  .verdict{padding:11px 12px; border-radius:10px; font-size:14px; line-height:1.5; border:1.5px solid var(--line); font-weight:600}
+  .verdict{padding:12px; border-radius:10px; font-size:16px; border:1.5px solid var(--line); font-weight:600}
   .verdict.warn{border-color:var(--warn); color:var(--warn); background:rgba(242,179,74,.08)}
   .verdict.ok{border-color:var(--ok); color:var(--ok); background:rgba(70,200,216,.08)}
-  .verdict small{display:block; font-weight:400; color:var(--dim); font-family:var(--mono); margin-top:4px; font-size:11px}
+  .verdict small{display:block; font-weight:400; color:var(--dim); font-family:var(--mono); margin-top:5px; font-size:16px}
 
-  button{padding:11px; border-radius:11px; border:1px solid var(--line); background:var(--panel);
-    color:var(--text); font-family:var(--sans); font-weight:600; font-size:14px; cursor:pointer}
-  button:active{transform:scale(.98)}
-  button.primary{background:var(--text); color:#000; border-color:var(--text)}
-  .controls{display:flex; gap:9px}
-  .controls button{flex:1}
-  .msg{font-size:13px; color:var(--dim); text-align:center; line-height:1.6}
+  .msg{font-size:16px; color:var(--dim); text-align:center}
   .msg.error{color:#ff9a9a}
-  footer{margin-top:8px; padding-top:14px; border-top:1px solid var(--line);
-    text-align:center; color:var(--dim); font-size:12px; line-height:1.7}
-  footer .copy{font-family:var(--mono); font-size:11px; margin-top:4px}
+  footer{margin-top:6px; padding-top:14px; border-top:1px solid var(--line);
+    text-align:center; color:var(--dim); font-size:16px; line-height:1.7}
+  footer .copy{font-family:var(--mono); font-size:16px; margin-top:4px}
 </style>
 </head>
 <body>
+<main>
   <h1>カラーメーター</h1>
-  <div class="wrap">
 
+  <!-- カメラ映像 -->
+  <section aria-label="カメラ映像">
     <div class="stage">
       <video id="video" playsinline autoplay muted></video>
-      <div class="reticle"><div class="reticle-box"></div></div>
+      <div class="reticle" id="reticle"></div>
     </div>
+  </section>
 
-    <div class="readout">
-      <div class="swatch" id="swatch"></div>
-      <div class="info">
-        <div class="name" id="name">—</div>
-        <div class="hex" id="hex">#------</div>
-      </div>
-    </div>
-
-    <div class="bars">
-      <div class="bar-row"><span class="bar-label">R 赤</span><div class="bar-track"><div class="bar-fill" id="barR" style="background:#ff5b5b"></div></div><span class="bar-val" id="valR">0</span></div>
-      <div class="bar-row"><span class="bar-label">G 緑</span><div class="bar-track"><div class="bar-fill" id="barG" style="background:#46d27a"></div></div><span class="bar-val" id="valG">0</span></div>
-      <div class="bar-row"><span class="bar-label">B 青</span><div class="bar-track"><div class="bar-fill" id="barB" style="background:#5b8bff"></div></div><span class="bar-val" id="valB">0</span></div>
-    </div>
-
-    <!-- 見分け注意度 -->
-    <div class="sectitle">見分け注意度</div>
-    <div class="risk">
-      <span class="risk-badge" id="riskBadge">—</span>
-      <span class="risk-text" id="riskText">この色が、実際とあなたの見え方でどれくらいズレるかを示します。</span>
-    </div>
-
-    <!-- 色弱シミュレーション -->
-    <div class="sectitle">あなたへの見え方（シミュレーション）</div>
-    <div class="sim">
-      <div class="sim-swatches">
-        <div class="sim-col"><div class="sim-box" id="simReal"></div><div class="sim-cap">実際の色</div></div>
-        <div class="sim-col"><div class="sim-box" id="simD"></div><div class="sim-cap">D型<br>(緑系の弱さ)</div></div>
-        <div class="sim-col"><div class="sim-box" id="simP"></div><div class="sim-cap">P型<br>(赤系の弱さ)</div></div>
-      </div>
-      <div class="sev"><span>強さ</span><input type="range" id="sev" min="0" max="1" step="0.05" value="0.8"><span class="bar-val" id="sevVal" style="font-size:13px">0.80</span></div>
-    </div>
-
-    <!-- 基準色との比較 -->
-    <div class="sectitle">基準色との比較</div>
-    <div class="compare">
-      <div class="cmp-top">
-        <div class="cmp-ref" id="cmpRef"></div>
-        <div class="cmp-btns">
-          <button id="btnSetRef">この色を基準に記録</button>
-          <button id="btnClearRef" style="flex:0 0 80px">クリア</button>
-        </div>
-      </div>
-      <div class="verdict" id="verdict">基準色を記録すると、いま映している色と比べて「見分けにくい組み合わせか」を判定します。</div>
-    </div>
-
-    <div class="controls">
-      <button class="primary" id="btnStart">カメラ開始</button>
+  <!-- 操作ボタン（モニタ直下に移動） -->
+  <div class="controls" role="group" aria-label="カメラ操作">
+    <div class="row"><button class="primary" id="btnStart">カメラ開始</button></div>
+    <div class="row">
       <button id="btnFlip">前後切替</button>
       <button id="btnFreeze">一時停止</button>
+      <button id="btnSave">保存</button>
     </div>
-    <div class="msg" id="msg">「カメラ開始」を押してください。中心（白い枠）の色を測ります。</div>
-
-    <footer>
-      映像は端末内で処理し送信しません。
-      <div class="copy">© 2026 rensapp</div>
-    </footer>
   </div>
 
-  <canvas id="canvas" hidden></canvas>
+  <!-- 測定範囲（レティクル） -->
+  <section class="reticle-ctrl">
+    <h2>測定範囲</h2>
+    <p>中心の白い枠の範囲を平均して色を測定します。</p>
+    <div class="seg" role="group" aria-label="測定範囲の大きさ">
+      <button id="rcS" aria-pressed="false">小</button>
+      <button id="rcM" aria-pressed="true">中</button>
+      <button id="rcL" aria-pressed="false">大</button>
+    </div>
+  </section>
+
+  <!-- 測定結果 -->
+  <section>
+    <h2>測定結果</h2>
+    <div class="readout">
+      <figure class="swatch" id="swatch" aria-label="測定した色"></figure>
+      <output class="info" for="video">
+        <span class="name" id="name">—</span>
+        <span class="hex" id="hex">#------</span>
+      </output>
+    </div>
+  </section>
+
+  <!-- RGB -->
+  <section>
+    <h2>RGB値</h2>
+    <ul class="bars">
+      <li class="bar-row"><span class="bar-label">R 赤</span><span class="bar-track"><span class="bar-fill" id="barR" style="background:#ff5b5b"></span></span><span class="bar-val" id="valR">0</span></li>
+      <li class="bar-row"><span class="bar-label">G 緑</span><span class="bar-track"><span class="bar-fill" id="barG" style="background:#46d27a"></span></span><span class="bar-val" id="valG">0</span></li>
+      <li class="bar-row"><span class="bar-label">B 青</span><span class="bar-track"><span class="bar-fill" id="barB" style="background:#5b8bff"></span></span><span class="bar-val" id="valB">0</span></li>
+    </ul>
+  </section>
+
+  <!-- 見分け注意度 -->
+  <section>
+    <h2>見分け注意度</h2>
+    <p class="risk" aria-live="polite">
+      <span class="risk-badge" id="riskBadge">—</span>
+      <span class="risk-text" id="riskText">この色が、実際とあなたの見え方でどれくらいズレるかを示します。</span>
+    </p>
+  </section>
+
+  <!-- シミュレーション -->
+  <section>
+    <h2>あなたへの見え方（シミュレーション）</h2>
+    <div class="sim-views">
+      <figure><canvas id="realCanvas"></canvas><figcaption>実際</figcaption></figure>
+      <figure><canvas id="dCanvas"></canvas><figcaption>D型<br>(緑系の弱さ)</figcaption></figure>
+      <figure><canvas id="pCanvas"></canvas><figcaption>P型<br>(赤系の弱さ)</figcaption></figure>
+    </div>
+    <label class="sev">強さ<input type="range" id="sev" min="0" max="1" step="0.05" value="0.8"><output id="sevVal">0.80</output></label>
+  </section>
+
+  <!-- 基準色比較 -->
+  <section>
+    <h2>基準色との比較</h2>
+    <div class="compare">
+      <div class="cmp-top">
+        <figure class="cmp-ref" id="cmpRef" aria-label="基準色"></figure>
+        <div class="cmp-btns">
+          <button id="btnSetRef">この色を基準に記録</button>
+          <button id="btnClearRef" style="flex:0 0 92px">クリア</button>
+        </div>
+      </div>
+      <p class="verdict" id="verdict" aria-live="polite">基準色を記録すると、いま映している色と比べて「見分けにくい組み合わせか」を判定します。</p>
+    </div>
+  </section>
+
+  <p class="msg" id="msg">「カメラ開始」を押してください。中心（白い枠）の色を測ります。</p>
+
+  <footer>
+    映像は端末内で処理し送信しません。
+    <span class="copy">© 2026 rensapp</span>
+  </footer>
+</main>
+
+<canvas id="sampleCanvas" hidden></canvas>
+<canvas id="procCanvas" hidden></canvas>
 
 <script>
-/* ===== 基本要素 ===== */
-const video=document.getElementById('video'), canvas=document.getElementById('canvas');
-const ctx=canvas.getContext('2d',{willReadFrequently:true});
-const msg=document.getElementById('msg');
-let stream=null, facing='environment', frozen=false;
-let lastColor={r:128,g:128,b:128};   // 直近の測定色（再計算用）
-let refColor=null;                    // 基準色
-let severity=0.8;                     // シミュレーション強さ
-const SAMPLE=11;
+/* ===== 要素 ===== */
+const video=document.getElementById('video');
+const sampleCanvas=document.getElementById('sampleCanvas'), sctx=sampleCanvas.getContext('2d',{willReadFrequently:true});
+const proc=document.getElementById('procCanvas'), pctx=proc.getContext('2d',{willReadFrequently:true});
+const realC=document.getElementById('realCanvas'), rctx=realC.getContext('2d');
+const dC=document.getElementById('dCanvas'), dctx=dC.getContext('2d');
+const pC=document.getElementById('pCanvas'), pcx=pC.getContext('2d');
+const msg=document.getElementById('msg'), reticleEl=document.getElementById('reticle');
 
-/* ===== カメラ ===== */
-async function startCamera(){
-  stopStream(); setMsg('カメラに接続中…');
-  try{
-    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing},audio:false});
-    video.srcObject=stream; await video.play();
-    canvas.width=video.videoWidth; canvas.height=video.videoHeight;
-    frozen=false; setMsg('測定中。中心の白い枠に色を合わせてください。'); loop();
-  }catch(e){
-    setMsg('カメラを開けませんでした：'+e.name+'（カメラ許可、またはhttps/localhostで開いているか確認）',true);
+let stream=null, facing='environment', frozen=false;
+let lastColor={r:128,g:128,b:128};
+let refColor=null;
+let severity=0.8;
+let reticlePct=0.06, reticleBox=46;   // 中
+let PW=200, PH=150;                    // シミュレーション用の小映像サイズ
+let dImg=null, pImg=null;
+
+/* ===== 色覚科学：行列・LUT ===== */
+const ID=[1,0,0,0,1,0,0,0,1];
+const MD=[0.367322,0.860646,-0.227968, 0.280085,0.672501,0.047413, -0.011820,0.042940,0.968881];
+const MP=[0.152286,1.052583,-0.204868, 0.114503,0.786281,0.099216, -0.003882,-0.048116,1.051998];
+const blendM=(M,s)=>M.map((v,i)=>ID[i]*(1-s)+v*s);
+let MDs=blendM(MD,severity), MPs=blendM(MP,severity);
+function updateMatrices(){ MDs=blendM(MD,severity); MPs=blendM(MP,severity); }
+
+// 高速変換用ルックアップテーブル（毎フレームの画素処理を軽くする）
+const LUTN=1024, LIN=new Float32Array(256), SRGB=new Uint8ClampedArray(LUTN);
+(function(){
+  for(let i=0;i<256;i++){const c=i/255; LIN[i]=c<=0.04045?c/12.92:Math.pow((c+0.055)/1.055,2.4);}
+  for(let j=0;j<LUTN;j++){const v=j/(LUTN-1); const c=v<=0.0031308?v*12.92:1.055*Math.pow(v,1/2.4)-0.055; SRGB[j]=Math.round(Math.max(0,Math.min(1,c))*255);}
+})();
+const clamp01=x=>x<0?0:x>1?1:x;
+const lz=v=>SRGB[(clamp01(v)*(LUTN-1))|0];
+function transform(src,dst,m){
+  const s=src.data,d=dst.data,n=s.length;
+  for(let i=0;i<n;i+=4){
+    const R=LIN[s[i]],G=LIN[s[i+1]],B=LIN[s[i+2]];
+    d[i]=lz(m[0]*R+m[1]*G+m[2]*B);
+    d[i+1]=lz(m[3]*R+m[4]*G+m[5]*B);
+    d[i+2]=lz(m[6]*R+m[7]*G+m[8]*B);
+    d[i+3]=255;
   }
 }
-function stopStream(){ if(stream){stream.getTracks().forEach(t=>t.stop()); stream=null;} }
-function loop(){
-  if(!stream) return;
-  if(!frozen && video.readyState>=2){
-    ctx.drawImage(video,0,0,canvas.width,canvas.height);
-    const c=sampleCenter(); if(c){ lastColor=c; render(); }
-  }
-  setTimeout(()=>requestAnimationFrame(loop),80);
+// 1色だけの正確なシミュレーション（注意度・比較の計算用）
+function simulate(r,g,b,type){
+  const R=LIN[r],G=LIN[g],B=LIN[b], m=(type==='P'?MPs:MDs);
+  return [lz(m[0]*R+m[1]*G+m[2]*B), lz(m[3]*R+m[4]*G+m[5]*B), lz(m[6]*R+m[7]*G+m[8]*B)];
 }
-function sampleCenter(){
-  const half=(SAMPLE-1)/2;
-  const x=Math.floor(canvas.width/2-half), y=Math.floor(canvas.height/2-half);
-  if(x<0||y<0) return null;
-  const d=ctx.getImageData(x,y,SAMPLE,SAMPLE).data;
-  let r=0,g=0,b=0,n=0;
-  for(let i=0;i<d.length;i+=4){r+=d[i];g+=d[i+1];b+=d[i+2];n++;}
-  return {r:Math.round(r/n),g:Math.round(g/n),b:Math.round(b/n)};
+function lab(r,g,b){
+  const R=LIN[r],G=LIN[g],B=LIN[b];
+  let X=(0.4124*R+0.3576*G+0.1805*B)/0.95047, Y=0.2126*R+0.7152*G+0.0722*B, Z=(0.0193*R+0.1192*G+0.9505*B)/1.08883;
+  const f=t=>t>0.008856?Math.cbrt(t):7.787*t+16/116, fx=f(X),fy=f(Y),fz=f(Z);
+  return [116*fy-16, 500*(fx-fy), 200*(fy-fz)];
 }
+const dE=(a,b)=>{const x=lab(a[0],a[1],a[2]),y=lab(b[0],b[1],b[2]); return Math.hypot(x[0]-y[0],x[1]-y[1],x[2]-y[2]);};
+const hx=(r,g,b)=>'#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('').toUpperCase();
 
 /* ===== 色名（HSV分類） ===== */
-function rgbToHsv(r,g,b){
+function colorName(r,g,b){
   r/=255;g/=255;b/=255;
   const max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min; let h=0;
   if(d!==0){ if(max===r)h=((g-b)/d)%6; else if(max===g)h=(b-r)/d+2; else h=(r-g)/d+4; h*=60; if(h<0)h+=360; }
-  return {h,s:max===0?0:d/max,v:max};
-}
-function colorName(r,g,b){
-  const {h,s,v}=rgbToHsv(r,g,b);
+  const s=max===0?0:d/max, v=max;
   if(v<0.12) return '黒';
   if(s<0.12){ if(v>0.85)return '白'; if(v>0.55)return '明るい灰色'; return '灰色'; }
   if(h<45&&v<0.6&&s>0.3) return h<18?'あずき色（暗い赤）':'茶色';
@@ -216,67 +276,83 @@ function colorName(r,g,b){
   return base;
 }
 
-/* ===== 色覚科学：sRGB↔linear, Lab, CVDシミュレーション ===== */
-function s2l(c){c/=255; return c<=0.04045?c/12.92:Math.pow((c+0.055)/1.055,2.4);}
-function l2s(c){c=c<=0.0031308?c*12.92:1.055*Math.pow(c,1/2.4)-0.055; return Math.round(Math.max(0,Math.min(1,c))*255);}
-// Machado et al. 2009（強さ1.0）。linear RGB に適用
-const ID=[1,0,0,0,1,0,0,0,1];
-const MD=[0.367322,0.860646,-0.227968, 0.280085,0.672501,0.047413, -0.011820,0.042940,0.968881]; // 2型(D)
-const MP=[0.152286,1.052583,-0.204868, 0.114503,0.786281,0.099216, -0.003882,-0.048116,1.051998]; // 1型(P)
-function blendM(M,s){return M.map((v,i)=>ID[i]*(1-s)+v*s);}
-function simulate(r,g,b,type,s){
-  const R=s2l(r),G=s2l(g),B=s2l(b), m=blendM(type==='P'?MP:MD,s);
-  return [ l2s(m[0]*R+m[1]*G+m[2]*B), l2s(m[3]*R+m[4]*G+m[5]*B), l2s(m[6]*R+m[7]*G+m[8]*B) ];
+/* ===== カメラ ===== */
+async function startCamera(){
+  stopStream(); setMsg('カメラに接続中…');
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing},audio:false});
+    video.srcObject=stream; await video.play();
+    const vw=video.videoWidth, vh=video.videoHeight;
+    const SW=Math.min(vw,720);
+    sampleCanvas.width=SW; sampleCanvas.height=Math.round(SW*vh/vw);
+    PH=Math.round(PW*vh/vw);
+    [proc,realC,dC,pC].forEach(c=>{c.width=PW; c.height=PH;});
+    dImg=pctx.createImageData(PW,PH); pImg=pctx.createImageData(PW,PH);
+    frozen=false; document.getElementById('btnFreeze').textContent='一時停止';
+    setMsg('測定中。中心の白い枠に色を合わせてください。'); updateReticleSize(); loop();
+  }catch(e){
+    setMsg('カメラを開けませんでした：'+e.name+'（カメラ許可、またはhttps/localhostで開いているか確認）',true);
+  }
 }
-function lab(r,g,b){
-  const R=s2l(r),G=s2l(g),B=s2l(b);
-  let X=(0.4124*R+0.3576*G+0.1805*B)/0.95047;
-  let Y= 0.2126*R+0.7152*G+0.0722*B;
-  let Z=(0.0193*R+0.1192*G+0.9505*B)/1.08883;
-  const f=t=>t>0.008856?Math.cbrt(t):7.787*t+16/116;
-  const fx=f(X),fy=f(Y),fz=f(Z);
-  return [116*fy-16, 500*(fx-fy), 200*(fy-fz)];
+function stopStream(){ if(stream){stream.getTracks().forEach(t=>t.stop()); stream=null;} }
+
+function loop(){
+  if(!stream) return;
+  if(!frozen) renderFrame();
+  setTimeout(()=>requestAnimationFrame(loop),80);
 }
-function dE(a,b){const x=lab(a[0],a[1],a[2]),y=lab(b[0],b[1],b[2]); return Math.hypot(x[0]-y[0],x[1]-y[1],x[2]-y[2]);}
-const hex=(r,g,b)=>'#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('').toUpperCase();
 
-/* ===== 表示の更新 ===== */
-function render(){
-  const {r,g,b}=lastColor; const rgb=[r,g,b];
+function renderFrame(){
+  if(video.readyState<2) return;
+  // 中心の色（フル解像度から平均）
+  sctx.drawImage(video,0,0,sampleCanvas.width,sampleCanvas.height);
+  const c=sampleCenter(); if(c){ lastColor=c; renderColor(); }
+  // シミュレーション小映像（実際・D型・P型を同時表示）
+  pctx.drawImage(video,0,0,PW,PH);
+  const src=pctx.getImageData(0,0,PW,PH);
+  rctx.putImageData(src,0,0);
+  transform(src,dImg,MDs); dctx.putImageData(dImg,0,0);
+  transform(src,pImg,MPs); pcx.putImageData(pImg,0,0);
+}
 
-  // メイン
-  document.getElementById('swatch').style.background=hex(r,g,b);
+function sampleCenter(){
+  let size=Math.round(sampleCanvas.width*reticlePct); if(size%2===0)size++; if(size<3)size=3;
+  const half=(size-1)/2;
+  const x=Math.floor(sampleCanvas.width/2-half), y=Math.floor(sampleCanvas.height/2-half);
+  if(x<0||y<0) return null;
+  const d=sctx.getImageData(x,y,size,size).data;
+  let r=0,g=0,b=0,n=0;
+  for(let i=0;i<d.length;i+=4){r+=d[i];g+=d[i+1];b+=d[i+2];n++;}
+  return {r:Math.round(r/n),g:Math.round(g/n),b:Math.round(b/n)};
+}
+
+/* ===== 表示更新 ===== */
+function renderColor(){
+  const {r,g,b}=lastColor, rgb=[r,g,b];
+  document.getElementById('swatch').style.background=hx(r,g,b);
   document.getElementById('name').textContent=colorName(r,g,b);
-  document.getElementById('hex').textContent=hex(r,g,b);
+  document.getElementById('hex').textContent=hx(r,g,b);
   document.getElementById('valR').textContent=r; document.getElementById('valG').textContent=g; document.getElementById('valB').textContent=b;
   document.getElementById('barR').style.width=(r/255*100)+'%';
   document.getElementById('barG').style.width=(g/255*100)+'%';
   document.getElementById('barB').style.width=(b/255*100)+'%';
 
-  // シミュレーション swatch
-  const sd=simulate(r,g,b,'D',severity), sp=simulate(r,g,b,'P',severity);
-  document.getElementById('simReal').style.background=hex(r,g,b);
-  document.getElementById('simD').style.background=hex(sd[0],sd[1],sd[2]);
-  document.getElementById('simP').style.background=hex(sp[0],sp[1],sp[2]);
-
-  // 見分け注意度：実際の色と、自分の見え方とのズレ(ΔE)の大きい方
-  const shift=Math.max(dE(rgb,sd), dE(rgb,sp));
+  // 見分け注意度
+  const shift=Math.max(dE(rgb,simulate(r,g,b,'D')), dE(rgb,simulate(r,g,b,'P')));
   const badge=document.getElementById('riskBadge'), txt=document.getElementById('riskText');
   let lv,col,t;
   if(shift<6){lv='低'; col='var(--ok)'; t='実際の見え方とのズレは小さい色です。判断しやすい色です。';}
   else if(shift<18){lv='中'; col='var(--warn)'; t='実際と少しズレて見える色です。数値（RGB）も確認しましょう。';}
   else{lv='高'; col='var(--warn)'; t='実際とかなり違って見えやすい色です。色名・数値で判断するのが安全です。';}
-  badge.textContent=lv+'  ΔE '+shift.toFixed(0); badge.style.borderColor=col; badge.style.color=col;
+  badge.textContent=lv+'  ΔE'+shift.toFixed(0); badge.style.borderColor=col; badge.style.color=col;
   txt.textContent=t;
 
   // 基準色比較
-  const v=document.getElementById('verdict');
-  if(!refColor){ /* メッセージは初期のまま */ }
-  else{
+  if(refColor){
+    const v=document.getElementById('verdict');
     const normal=dE(rgb,[refColor.r,refColor.g,refColor.b]);
-    const simD=dE(simulate(r,g,b,'D',severity), simulate(refColor.r,refColor.g,refColor.b,'D',severity));
-    const simP=dE(simulate(r,g,b,'P',severity), simulate(refColor.r,refColor.g,refColor.b,'P',severity));
-    const sim=Math.min(simD,simP);
+    const sim=Math.min(dE(simulate(r,g,b,'D'),simulate(refColor.r,refColor.g,refColor.b,'D')),
+                       dE(simulate(r,g,b,'P'),simulate(refColor.r,refColor.g,refColor.b,'P')));
     const num='<small>実際の差 ΔE'+normal.toFixed(0)+' ／ あなたの見え方の差 ΔE'+sim.toFixed(0)+'</small>';
     let cls,head;
     if(normal<6){cls='ok'; head='≈ ほぼ同じ色です';}
@@ -287,23 +363,87 @@ function render(){
   }
 }
 
-/* ===== UI ===== */
+/* ===== レティクル ===== */
+function updateReticleSize(){
+  const stage=document.querySelector('.stage');
+  const w=stage.clientWidth || 360;
+  reticleBox=Math.max(20, Math.round(w*reticlePct*1.6));  // 画面上の枠サイズ（範囲を視覚化）
+  reticleEl.style.width=reticleBox+'px'; reticleEl.style.height=reticleBox+'px';
+}
+window.addEventListener('resize', updateReticleSize);
+
+function setReticle(pct,btn){
+  reticlePct=pct;
+  ['rcS','rcM','rcL'].forEach(id=>document.getElementById(id).setAttribute('aria-pressed','false'));
+  btn.setAttribute('aria-pressed','true');
+  updateReticleSize();
+  if(stream) renderFrame();
+}
+
+/* ===== 保存（キャプチャ） ===== */
+function saveCapture(){
+  if(!video.videoWidth){ setMsg('先にカメラを開始してください。',true); return; }
+  const cw=Math.min(video.videoWidth,640), ch=Math.round(cw*video.videoHeight/video.videoWidth);
+  const tmp=document.createElement('canvas'); tmp.width=cw; tmp.height=ch;
+  const tc=tmp.getContext('2d',{willReadFrequently:true});
+  tc.drawImage(video,0,0,cw,ch);
+  const src=tc.getImageData(0,0,cw,ch);
+  const dd=tc.createImageData(cw,ch); transform(src,dd,MDs);
+  const pp=tc.createImageData(cw,ch); transform(src,pp,MPs);
+
+  const pad=12, lh=34, out=document.createElement('canvas');
+  out.width=cw+pad*2; out.height=pad+(lh+ch+pad)*3;
+  const o=out.getContext('2d');
+  o.fillStyle='#0d0f12'; o.fillRect(0,0,out.width,out.height);
+  o.fillStyle='#eef2f6'; o.font='600 18px sans-serif'; o.textBaseline='middle';
+  let y=pad;
+  const block=(img,label)=>{
+    o.fillText(label,pad,y+lh/2); y+=lh;
+    const t=document.createElement('canvas'); t.width=cw; t.height=ch;
+    t.getContext('2d').putImageData(img,0,0);
+    o.drawImage(t,pad,y); y+=ch+pad;
+  };
+  block(src,'実際の色'); block(dd,'D型（緑系の弱さ）'); block(pp,'P型（赤系の弱さ）');
+
+  out.toBlob(b=>{
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(b);
+    const d=new Date(), p=n=>String(n).padStart(2,'0');
+    a.download='color-sim_'+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'_'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds())+'.png';
+    a.click(); URL.revokeObjectURL(a.href);
+  },'image/png');
+}
+
+/* ===== 操作 ===== */
 function setMsg(t,err){msg.textContent=t; msg.className=err?'msg error':'msg';}
 document.getElementById('btnStart').onclick=startCamera;
 document.getElementById('btnFlip').onclick=()=>{facing=facing==='environment'?'user':'environment'; if(stream)startCamera();};
-document.getElementById('btnFreeze').onclick=e=>{frozen=!frozen; e.target.textContent=frozen?'再開':'一時停止';};
-document.getElementById('sev').oninput=e=>{severity=parseFloat(e.target.value); document.getElementById('sevVal').textContent=severity.toFixed(2); render();};
+document.getElementById('btnFreeze').onclick=e=>{
+  if(!stream)return;
+  frozen=!frozen;
+  if(frozen){ renderFrame(); video.pause(); e.target.textContent='再開'; }   // 全映像をその瞬間で停止
+  else{ video.play(); e.target.textContent='一時停止'; }
+};
+document.getElementById('btnSave').onclick=saveCapture;
+document.getElementById('sev').oninput=e=>{
+  severity=parseFloat(e.target.value); updateMatrices();
+  document.getElementById('sevVal').textContent=severity.toFixed(2);
+  if(stream) renderFrame();
+};
+document.getElementById('rcS').onclick=e=>setReticle(0.03,e.currentTarget);
+document.getElementById('rcM').onclick=e=>setReticle(0.06,e.currentTarget);
+document.getElementById('rcL').onclick=e=>setReticle(0.10,e.currentTarget);
 document.getElementById('btnSetRef').onclick=()=>{
   refColor={...lastColor};
-  document.getElementById('cmpRef').style.background=hex(refColor.r,refColor.g,refColor.b);
-  render();
+  document.getElementById('cmpRef').style.background=hx(refColor.r,refColor.g,refColor.b);
+  if(stream) renderColor();
 };
 document.getElementById('btnClearRef').onclick=()=>{
   refColor=null; document.getElementById('cmpRef').style.background='#222';
   const v=document.getElementById('verdict'); v.className='verdict';
   v.textContent='基準色を記録すると、いま映している色と比べて「見分けにくい組み合わせか」を判定します。';
 };
-render(); // 初期表示
+updateReticleSize();
 </script>
 </body>
 </html>
