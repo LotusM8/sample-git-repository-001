@@ -25,8 +25,17 @@
   section{display:flex; flex-direction:column; gap:10px}
   p{font-size:16px}
 
+  /* アコーディオン */
+  .acc{display:flex; flex-direction:column; gap:10px}
+  .acc>summary{list-style:none; cursor:pointer; display:flex; align-items:center;
+    justify-content:space-between; gap:8px; min-height:32px}
+  .acc>summary::-webkit-details-marker{display:none}
+  .acc>summary h2{margin:0}
+  .acc .chev{width:20px; height:20px; color:var(--dim); flex:0 0 auto; transition:transform .15s}
+  .acc[open]>summary .chev{transform:rotate(180deg)}
+
   /* カメラ映像 */
-  .stage{position:relative; width:100%; aspect-ratio:4/3; background:#000;
+  .stage{position:relative; width:100%; aspect-ratio:16/9; background:#000;
     border-radius:14px; overflow:hidden; border:1px solid var(--line)}
   video{width:100%; height:100%; object-fit:cover; display:block}
   .reticle{position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
@@ -34,13 +43,15 @@
     box-shadow:0 0 0 1px rgba(0,0,0,.7); border-radius:4px}
 
   /* ボタン（モニタ直下） */
-  .controls{display:flex; flex-direction:column; gap:9px}
-  .controls .row{display:flex; gap:9px}
+  .controls{display:flex; gap:9px; align-items:stretch}
   button{flex:1; padding:13px 10px; border-radius:12px; border:1px solid var(--line);
     background:var(--panel); color:var(--text); font-family:var(--sans);
     font-weight:600; font-size:16px; cursor:pointer; min-height:48px}
   button:active{transform:scale(.98)}
   button.primary{background:var(--text); color:#000; border-color:var(--text)}
+  button.icon{flex:0 0 60px; display:flex; align-items:center; justify-content:center; padding:0}
+  button.icon svg{width:24px; height:24px; display:block}
+  .save-btn{flex:0 0 auto; width:100%}
 
   /* 測定範囲（レティクル） */
   .reticle-ctrl p{font-size:16px; color:var(--dim)}
@@ -95,13 +106,11 @@
   .msg.error{color:#ff9a9a}
   footer{margin-top:6px; padding-top:14px; border-top:1px solid var(--line);
     text-align:center; color:var(--dim); font-size:16px; line-height:1.7}
-  footer .copy{font-family:var(--mono); font-size:16px; margin-top:4px}
+  footer .copy{display:block; font-family:var(--mono); font-size:16px; margin-top:4px}
 </style>
 </head>
 <body>
 <main>
-  <h1>カラーメーター</h1>
-
   <!-- カメラ映像 -->
   <section aria-label="カメラ映像">
     <div class="stage">
@@ -110,19 +119,20 @@
     </div>
   </section>
 
-  <!-- 操作ボタン（モニタ直下に移動） -->
+  <!-- 操作ボタン（モニタ直下） -->
   <div class="controls" role="group" aria-label="カメラ操作">
-    <div class="row"><button class="primary" id="btnStart">カメラ開始</button></div>
-    <div class="row">
-      <button id="btnFlip">前後切替</button>
-      <button id="btnFreeze">一時停止</button>
-      <button id="btnSave">保存</button>
-    </div>
+    <button class="icon" id="btnFlip" aria-label="前後切替">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-9 9 9 9 0 0 1-7.5-4"/><path d="M3 12a9 9 0 0 1 9-9 9 9 0 0 1 7.5 4"/><polyline points="21 3 21 7 17 7"/><polyline points="3 21 3 17 7 17"/></svg>
+    </button>
+    <button class="primary" id="btnStart">カメラ開始</button>
+    <button class="icon" id="btnFreeze" aria-label="一時停止">
+      <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+    </button>
   </div>
 
   <!-- 測定結果 -->
-  <section>
-    <h2>測定結果</h2>
+  <details class="acc" open>
+    <summary><h2>測定結果</h2><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
     <div class="readout">
       <figure class="swatch" id="swatch" aria-label="測定した色"></figure>
       <output class="info" for="video">
@@ -130,41 +140,42 @@
         <span class="hex" id="hex">#------</span>
       </output>
     </div>
-  </section>
+  </details>
 
   <!-- RGB -->
-  <section>
-    <h2>RGB値</h2>
+  <details class="acc" open>
+    <summary><h2>RGB値</h2><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
     <ul class="bars">
       <li class="bar-row"><span class="bar-label">R 赤</span><span class="bar-track"><span class="bar-fill" id="barR" style="background:#ff5b5b"></span></span><span class="bar-val" id="valR">0</span></li>
       <li class="bar-row"><span class="bar-label">G 緑</span><span class="bar-track"><span class="bar-fill" id="barG" style="background:#46d27a"></span></span><span class="bar-val" id="valG">0</span></li>
       <li class="bar-row"><span class="bar-label">B 青</span><span class="bar-track"><span class="bar-fill" id="barB" style="background:#5b8bff"></span></span><span class="bar-val" id="valB">0</span></li>
     </ul>
-  </section>
+  </details>
 
   <!-- 見分け注意度 -->
-  <section>
-    <h2>見分け注意度</h2>
+  <details class="acc" open>
+    <summary><h2>見分け注意度</h2><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
     <p class="risk" aria-live="polite">
       <span class="risk-badge" id="riskBadge">—</span>
       <span class="risk-text" id="riskText">この色が、実際とあなたの見え方でどれくらいズレるかを示します。</span>
     </p>
-  </section>
+  </details>
 
   <!-- シミュレーション -->
-  <section>
-    <h2>あなたへの見え方（シミュレーション）</h2>
+  <details class="acc" open>
+    <summary><h2>あなたへの見え方（シミュレーション）</h2><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
     <div class="sim-views">
       <figure><canvas id="realCanvas"></canvas><figcaption>実際</figcaption></figure>
       <figure><canvas id="dCanvas"></canvas><figcaption>D型<br>(緑系の弱さ)</figcaption></figure>
       <figure><canvas id="pCanvas"></canvas><figcaption>P型<br>(赤系の弱さ)</figcaption></figure>
     </div>
     <label class="sev">強さ<input type="range" id="sev" min="0" max="1" step="0.05" value="0.8"><output id="sevVal">0.80</output></label>
-  </section>
+    <button class="save-btn" id="btnSave">見え方を保存</button>
+  </details>
 
   <!-- 基準色比較 -->
-  <section>
-    <h2>基準色との比較</h2>
+  <details class="acc" open>
+    <summary><h2>基準色との比較</h2><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
     <div class="compare">
       <div class="cmp-top">
         <figure class="cmp-ref" id="cmpRef" aria-label="基準色"></figure>
@@ -175,7 +186,7 @@
       </div>
       <p class="verdict" id="verdict" aria-live="polite">基準色を記録すると、いま映している色と比べて「見分けにくい組み合わせか」を判定します。</p>
     </div>
-  </section>
+  </details>
 
   <p class="msg" id="msg">「カメラ開始」を押してください。中心（白い枠）の色を測ります。</p>
 
@@ -192,7 +203,7 @@
 
   <footer>
     映像は端末内で処理し送信しません。
-    <span class="copy">© 2026 rensapp</span>
+    <span class="copy">カラーメーター　© 2026 rensapp</span>
   </footer>
 </main>
 
@@ -288,7 +299,7 @@ async function startCamera(){
     PH=Math.round(PW*vh/vw);
     [proc,realC,dC,pC].forEach(c=>{c.width=PW; c.height=PH;});
     dImg=pctx.createImageData(PW,PH); pImg=pctx.createImageData(PW,PH);
-    frozen=false; document.getElementById('btnFreeze').textContent='一時停止';
+    frozen=false; const fb=document.getElementById('btnFreeze'); fb.innerHTML=ICON_PAUSE; fb.setAttribute('aria-label','一時停止');
     setMsg('測定中。中心の白い枠に色を合わせてください。'); updateReticleSize(); loop();
   }catch(e){
     setMsg('カメラを開けませんでした：'+e.name+'（カメラ許可、またはhttps/localhostで開いているか確認）',true);
@@ -418,11 +429,14 @@ function saveCapture(){
 function setMsg(t,err){msg.textContent=t; msg.className=err?'msg error':'msg';}
 document.getElementById('btnStart').onclick=startCamera;
 document.getElementById('btnFlip').onclick=()=>{facing=facing==='environment'?'user':'environment'; if(stream)startCamera();};
+const ICON_PAUSE='<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
+const ICON_PLAY='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5l12 7-12 7z"/></svg>';
 document.getElementById('btnFreeze').onclick=e=>{
   if(!stream)return;
+  const btn=e.currentTarget;
   frozen=!frozen;
-  if(frozen){ renderFrame(); video.pause(); e.target.textContent='再開'; }   // 全映像をその瞬間で停止
-  else{ video.play(); e.target.textContent='一時停止'; }
+  if(frozen){ renderFrame(); video.pause(); btn.innerHTML=ICON_PLAY; btn.setAttribute('aria-label','再開'); }
+  else{ video.play(); btn.innerHTML=ICON_PAUSE; btn.setAttribute('aria-label','一時停止'); }
 };
 document.getElementById('btnSave').onclick=saveCapture;
 document.getElementById('sev').oninput=e=>{
