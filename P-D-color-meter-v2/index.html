@@ -195,8 +195,8 @@
     <h2>測定範囲</h2>
     <p>中心の白い枠の範囲を平均して色を測定します。</p>
     <div class="seg" role="group" aria-label="測定範囲の大きさ">
-      <button id="rcS" aria-pressed="false">小</button>
-      <button id="rcM" aria-pressed="true">中</button>
+      <button id="rcS" aria-pressed="true">小</button>
+      <button id="rcM" aria-pressed="false">中</button>
       <button id="rcL" aria-pressed="false">大</button>
     </div>
   </section>
@@ -224,7 +224,7 @@ let stream=null, facing='environment', frozen=false;
 let lastColor={r:128,g:128,b:128};
 let refColor=null;
 let severity=0.8;
-let reticlePct=0.06, reticleBox=46;   // 中
+let reticlePct=0.03, reticleBox=30;   // 小
 let PW=200, PH=150;                    // シミュレーション用の小映像サイズ
 let dImg=null, pImg=null;
 
@@ -392,33 +392,72 @@ function setReticle(pct,btn){
 }
 
 /* ===== 保存（キャプチャ） ===== */
+function rangeName(){ return reticlePct<=0.03?'小':(reticlePct>=0.10?'大':'中'); }
+function roundRect(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
+
 function saveCapture(){
   if(!video.videoWidth){ setMsg('先にカメラを開始してください。',true); return; }
-  const cw=Math.min(video.videoWidth,640), ch=Math.round(cw*video.videoHeight/video.videoWidth);
-  const tmp=document.createElement('canvas'); tmp.width=cw; tmp.height=ch;
-  const tc=tmp.getContext('2d',{willReadFrequently:true});
-  tc.drawImage(video,0,0,cw,ch);
-  const src=tc.getImageData(0,0,cw,ch);
-  const dd=tc.createImageData(cw,ch); transform(src,dd,MDs);
-  const pp=tc.createImageData(cw,ch); transform(src,pp,MPs);
+  // 元フレーム
+  const fw=Math.min(video.videoWidth,720), fh=Math.round(fw*video.videoHeight/video.videoWidth);
+  const frame=document.createElement('canvas'); frame.width=fw; frame.height=fh;
+  frame.getContext('2d').drawImage(video,0,0,fw,fh);
+  // シミュレーション表示と同じ 4:3 中央クロップ（見えている範囲だけ）
+  const ca=4/3, fa=fw/fh; let cw,ch,cx,cy;
+  if(fa>ca){ ch=fh; cw=Math.round(fh*ca); cx=Math.round((fw-cw)/2); cy=0; }
+  else{ cw=fw; ch=Math.round(fw/ca); cx=0; cy=Math.round((fh-ch)/2); }
 
-  const pad=12, lh=34, out=document.createElement('canvas');
-  out.width=cw+pad*2; out.height=pad+(lh+ch+pad)*3;
-  const o=out.getContext('2d');
-  o.fillStyle='#0d0f12'; o.fillRect(0,0,out.width,out.height);
-  o.fillStyle='#eef2f6'; o.font='600 18px sans-serif'; o.textBaseline='middle';
-  let y=pad;
-  const block=(img,label)=>{
-    o.fillText(label,pad,y+lh/2); y+=lh;
-    const t=document.createElement('canvas'); t.width=cw; t.height=ch;
-    t.getContext('2d').putImageData(img,0,0);
-    o.drawImage(t,pad,y); y+=ch+pad;
-  };
-  block(src,'実際の色'); block(dd,'D型（緑系の弱さ）'); block(pp,'P型（赤系の弱さ）');
+  const S=2, tW=150, tH=Math.round(tW*3/4);   // サムネ表示サイズ（論理px）、2x解像度で生成
+  function viewCanvas(type){
+    const c=document.createElement('canvas'); c.width=tW*S; c.height=tH*S;
+    const x=c.getContext('2d',{willReadFrequently:true});
+    x.drawImage(frame, cx,cy,cw,ch, 0,0,c.width,c.height);
+    if(type){ const im=x.getImageData(0,0,c.width,c.height); const ot=x.createImageData(c.width,c.height);
+      transform(im,ot,type==='P'?MPs:MDs); x.putImageData(ot,0,0); }
+    return c;
+  }
+  const views=[viewCanvas(null), viewCanvas('D'), viewCanvas('P')];
+  const labels=['実際','D型','P型'];
 
-  out.toBlob(b=>{
+  // レイアウト
+  const pad=18, gap=12, labelH=24;
+  const W=pad*2+tW*3+gap*2;
+  const dataTop=pad+tH+labelH+gap;
+  const swH=54, rangeH=28, rgbH=26;
+  const H=dataTop+swH+rangeH+rgbH+pad;
+
+  const out=document.createElement('canvas'); out.width=W*S; out.height=H*S;
+  const o=out.getContext('2d'); o.scale(S,S);
+  o.fillStyle='#0d0f12'; o.fillRect(0,0,W,H);
+  o.textBaseline='middle';
+
+  // 3つのビュー
+  views.forEach((v,i)=>{
+    const x=pad+i*(tW+gap);
+    o.save(); roundRect(o,x,pad,tW,tH,8); o.clip(); o.drawImage(v,x,pad,tW,tH); o.restore();
+    o.lineWidth=1; o.strokeStyle='#262c35'; roundRect(o,x,pad,tW,tH,8); o.stroke();
+    // 実際ビューの中心に測定範囲の枠を描画
+    if(i===0){ const bs=Math.max(8, tW*reticlePct*1.6), bx=x+tW/2-bs/2, by=pad+tH/2-bs/2;
+      o.lineWidth=2; o.strokeStyle='rgba(0,0,0,.7)'; o.strokeRect(bx-1,by-1,bs+2,bs+2);
+      o.strokeStyle='#fff'; o.strokeRect(bx,by,bs,bs); }
+    o.fillStyle='#9aa6b4'; o.font='600 14px sans-serif'; o.textAlign='center';
+    o.fillText(labels[i], x+tW/2, pad+tH+labelH/2+2);
+  });
+
+  // データ部
+  o.textAlign='left';
+  const {r,g,b}=lastColor;
+  o.fillStyle=hx(r,g,b); roundRect(o,pad,dataTop,46,46,8); o.fill();
+  o.lineWidth=1; o.strokeStyle='#262c35'; roundRect(o,pad,dataTop,46,46,8); o.stroke();
+  o.fillStyle='#eef2f6'; o.font='800 22px sans-serif'; o.fillText(colorName(r,g,b), pad+60, dataTop+15);
+  o.fillStyle='#9aa6b4'; o.font='16px monospace'; o.fillText(hx(r,g,b), pad+60, dataTop+37);
+  let y=dataTop+swH+rangeH/2;
+  o.fillStyle='#eef2f6'; o.font='16px sans-serif'; o.fillText('測定範囲：'+rangeName(), pad, y);
+  y+=rgbH;
+  o.font='18px monospace'; o.fillText('R 赤 '+r+'   G 緑 '+g+'   B 青 '+b, pad, y);
+
+  out.toBlob(b2=>{
     const a=document.createElement('a');
-    a.href=URL.createObjectURL(b);
+    a.href=URL.createObjectURL(b2);
     const d=new Date(), p=n=>String(n).padStart(2,'0');
     a.download='color-sim_'+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'_'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds())+'.png';
     a.click(); URL.revokeObjectURL(a.href);
