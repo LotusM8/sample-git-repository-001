@@ -107,6 +107,22 @@
   footer{margin-top:6px; padding-top:14px; border-top:1px solid var(--line);
     text-align:center; color:var(--dim); font-size:16px; line-height:1.7}
   footer .copy{display:block; font-family:var(--mono); font-size:16px; margin-top:4px}
+
+  /* マニュアル表示ボタン（フッター上・右下・小さめ） */
+  .manual-bar{display:flex; justify-content:flex-end}
+  .manual-btn{flex:0 0 auto; min-height:auto; font-size:14px; font-weight:600;
+    padding:8px 14px; border-radius:10px}
+
+  /* マニュアル用モーダル */
+  .modal{display:none; position:fixed; inset:0; z-index:100;
+    background:rgba(0,0,0,.85); overflow:auto; padding:18px}
+  .modal.open{display:block}
+  .modal-inner{max-width:620px; margin:0 auto}
+  .modal-inner img{width:100%; height:auto; display:block; border-radius:10px; border:1px solid var(--line)}
+  .modal-close{position:fixed; top:14px; right:14px; z-index:101; flex:0 0 auto;
+    width:46px; height:46px; min-height:auto; padding:0; border-radius:50%;
+    background:rgba(20,25,31,.92); color:var(--text); border:1px solid var(--line);
+    font-size:22px; line-height:1; cursor:pointer}
 </style>
 </head>
 <body>
@@ -201,11 +217,22 @@
     </div>
   </section>
 
+  <div class="manual-bar">
+    <button class="manual-btn" id="btnManual">マニュアルを表示</button>
+  </div>
+
   <footer>
     映像は端末内で処理し送信しません。
     <span class="copy">カラーメーター　© 2026 rensapp</span>
   </footer>
 </main>
+
+<div class="modal" id="manualModal" role="dialog" aria-modal="true" aria-label="マニュアル">
+  <button class="modal-close" id="btnManualClose" aria-label="閉じる">✕</button>
+  <div class="modal-inner">
+    <img src="manual.png" alt="カラーメーターの使い方マニュアル">
+  </div>
+</div>
 
 <canvas id="sampleCanvas" hidden></canvas>
 <canvas id="procCanvas" hidden></canvas>
@@ -477,8 +504,7 @@ document.getElementById('btnFreeze').onclick=e=>{
   if(frozen){ renderFrame(); video.pause(); btn.innerHTML=ICON_PLAY; btn.setAttribute('aria-label','再開'); }
   else{ video.play(); btn.innerHTML=ICON_PAUSE; btn.setAttribute('aria-label','一時停止'); }
 };
-document.getElementById('btnSave').onclick=saveCapture;
-document.getElementById('sev').oninput=e=>{
+document.getElementById('btnSave').onclick=saveCapture;document.getElementById('sev').oninput=e=>{
   severity=parseFloat(e.target.value); updateMatrices();
   document.getElementById('sevVal').textContent=severity.toFixed(2);
   if(stream) renderFrame();
@@ -497,6 +523,14 @@ document.getElementById('btnClearRef').onclick=()=>{
   v.textContent='基準色を記録すると、いま映している色と比べて「見分けにくい組み合わせか」を判定します。';
 };
 updateReticleSize();
+
+/* ===== マニュアルモーダル ===== */
+const manualModal=document.getElementById('manualModal');
+function closeManual(){ manualModal.classList.remove('open'); document.body.style.overflow=''; }
+document.getElementById('btnManual').onclick=()=>{ manualModal.classList.add('open'); document.body.style.overflow='hidden'; };
+document.getElementById('btnManualClose').onclick=closeManual;
+manualModal.addEventListener('click', e=>{ if(e.target===manualModal) closeManual(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && manualModal.classList.contains('open')) closeManual(); });
 </script>
 </body>
 </html>
