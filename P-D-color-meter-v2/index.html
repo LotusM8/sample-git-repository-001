@@ -123,6 +123,19 @@
     width:46px; height:46px; min-height:auto; padding:0; border-radius:50%;
     background:rgba(20,25,31,.92); color:var(--text); border:1px solid var(--line);
     font-size:22px; line-height:1; cursor:pointer}
+  .modal-inner img{cursor:zoom-in}
+  .modal.zoomed{text-align:left}
+  .modal.zoomed .modal-inner{margin:0; width:max-content}
+  .modal.zoomed .modal-inner img{cursor:zoom-out}
+  .modal-hint{position:fixed; top:18px; left:14px; z-index:101; font-size:13px; color:#cdd5de;
+    background:rgba(20,25,31,.85); border:1px solid var(--line); border-radius:8px; padding:6px 10px}
+  .modal.zoomed .modal-hint{display:none}
+  .modal-zoom{position:fixed; bottom:18px; left:50%; transform:translateX(-50%); z-index:101;
+    display:flex; gap:6px; align-items:center; background:rgba(20,25,31,.94);
+    border:1px solid var(--line); border-radius:999px; padding:6px}
+  .modal-zoom button{flex:0 0 auto; width:46px; height:46px; min-height:auto; padding:0;
+    border:none; background:transparent; color:var(--text); font-size:24px; line-height:1; cursor:pointer}
+  .modal-zoom #zReset{width:auto; padding:0 12px; font-size:15px; font-weight:600; font-family:var(--mono)}
 </style>
 </head>
 <body>
@@ -229,8 +242,14 @@
 
 <div class="modal" id="manualModal" role="dialog" aria-modal="true" aria-label="マニュアル">
   <button class="modal-close" id="btnManualClose" aria-label="閉じる">✕</button>
+  <p class="modal-hint">タップ／＋−で拡大できます</p>
   <div class="modal-inner">
     <img src="manual.png" alt="カラーメーターの使い方マニュアル">
+  </div>
+  <div class="modal-zoom" role="group" aria-label="拡大縮小">
+    <button id="zOut" aria-label="縮小">−</button>
+    <button id="zReset" aria-label="等倍に戻す">100%</button>
+    <button id="zIn" aria-label="拡大">＋</button>
   </div>
 </div>
 
@@ -524,11 +543,28 @@ document.getElementById('btnClearRef').onclick=()=>{
 };
 updateReticleSize();
 
-/* ===== マニュアルモーダル ===== */
+/* ===== マニュアルモーダル（拡大縮小対応） ===== */
 const manualModal=document.getElementById('manualModal');
+const mImg=manualModal.querySelector('img');
+let mScale=1, fitW=0;
+function applyZoom(){
+  if(mScale<=1.001){ mImg.style.width=''; mImg.style.maxWidth=''; manualModal.classList.remove('zoomed'); }
+  else{ mImg.style.maxWidth='none'; mImg.style.width=Math.round(fitW*mScale)+'px'; manualModal.classList.add('zoomed'); }
+  document.getElementById('zReset').textContent=Math.round(mScale*100)+'%';
+}
+function openManual(){
+  manualModal.classList.add('open'); document.body.style.overflow='hidden';
+  mScale=1; fitW=Math.min(620, window.innerWidth-36); applyZoom();
+  manualModal.scrollTop=0; manualModal.scrollLeft=0;
+}
 function closeManual(){ manualModal.classList.remove('open'); document.body.style.overflow=''; }
-document.getElementById('btnManual').onclick=()=>{ manualModal.classList.add('open'); document.body.style.overflow='hidden'; };
+function resetZoom(){ mScale=1; applyZoom(); manualModal.scrollTop=0; manualModal.scrollLeft=0; }
+document.getElementById('btnManual').onclick=openManual;
 document.getElementById('btnManualClose').onclick=closeManual;
+document.getElementById('zIn').onclick=()=>{ mScale=Math.min(4,mScale+0.5); applyZoom(); };
+document.getElementById('zOut').onclick=()=>{ mScale=Math.max(1,mScale-0.5); if(mScale<=1)resetZoom(); else applyZoom(); };
+document.getElementById('zReset').onclick=resetZoom;
+mImg.addEventListener('click', ()=>{ if(mScale>1.001){ resetZoom(); } else { mScale=2.5; applyZoom(); } });
 manualModal.addEventListener('click', e=>{ if(e.target===manualModal) closeManual(); });
 document.addEventListener('keydown', e=>{ if(e.key==='Escape' && manualModal.classList.contains('open')) closeManual(); });
 </script>
