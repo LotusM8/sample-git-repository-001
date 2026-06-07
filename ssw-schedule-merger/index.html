@@ -3,165 +3,128 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Schedule Merger v1 — A → B 反映ツール</title>
+<title>SSW Schedule Merger v2 — A/A2 → B 反映ツール</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --paper:#f4f1ea;
-    --paper-2:#ece7db;
-    --ink:#1c1b18;
-    --ink-soft:#54514a;
-    --line:#d8d2c4;
-    --accent:#1f5f5b;       /* deep teal */
-    --accent-ink:#0d3b38;
-    --ok:#2e7d4f;
-    --ok-bg:#e4f1e7;
-    --warn:#9a5b00;
-    --warn-bg:#faecd2;
-    --err:#a8331f;
-    --err-bg:#f7e0da;
-    --frame:#1f5f5b;
-    --ignore:#8a8478;
+    --paper:#f4f1ea; --paper-2:#ece7db; --ink:#1c1b18; --ink-soft:#54514a;
+    --line:#d8d2c4; --accent:#1f5f5b; --accent-ink:#0d3b38;
+    --ok:#2e7d4f; --ok-bg:#e4f1e7; --warn:#9a5b00; --warn-bg:#faecd2;
+    --err:#a8331f; --err-bg:#f7e0da; --ignore:#8a8478;
     --shadow:0 1px 0 #fff inset, 0 2px 8px rgba(28,27,24,.07);
   }
-  *{box-sizing:border-box}
-  html,body{margin:0}
+  *{box-sizing:border-box} html,body{margin:0}
   body{
-    background:
-      radial-gradient(900px 500px at 12% -5%, #ffffff 0%, transparent 55%),
-      var(--paper);
-    color:var(--ink);
-    font-family:"Archivo",system-ui,sans-serif;
-    line-height:1.55;
-    -webkit-font-smoothing:antialiased;
-    padding:32px 28px 80px;
+    background:radial-gradient(900px 500px at 12% -5%, #fff 0%, transparent 55%), var(--paper);
+    color:var(--ink); font-family:"Archivo",system-ui,sans-serif; line-height:1.55;
+    -webkit-font-smoothing:antialiased; padding:32px 28px 80px;
   }
   .wrap{max-width:1180px;margin:0 auto}
   header.app{
-    display:flex;align-items:flex-end;justify-content:space-between;
-    gap:24px;border-bottom:2px solid var(--ink);padding-bottom:14px;margin-bottom:8px;
-    flex-wrap:wrap;
+    display:flex;align-items:flex-end;justify-content:space-between;gap:24px;
+    border-bottom:2px solid var(--ink);padding-bottom:14px;flex-wrap:wrap;
   }
   .title{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
-  .title h1{
-    font-size:30px;font-weight:800;letter-spacing:-.02em;margin:0;line-height:1;
-  }
-  .title .ver{
-    font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:700;
-    color:var(--paper);background:var(--accent);padding:3px 8px;border-radius:4px;
-    letter-spacing:.02em;
-  }
+  .title h1{font-size:29px;font-weight:800;letter-spacing:-.02em;margin:0;line-height:1}
+  .title .ver{font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:700;
+    color:var(--paper);background:var(--accent);padding:3px 8px;border-radius:4px}
   .title .sub{color:var(--ink-soft);font-size:13px;font-weight:500}
-  .scope{
-    font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--accent-ink);
-    background:var(--paper-2);border:1px solid var(--line);padding:6px 10px;border-radius:6px;
+  .scope{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--accent-ink);
+    background:var(--paper-2);border:1px solid var(--line);padding:6px 10px;border-radius:6px}
+
+  .drops{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px}
+  @media(max-width:760px){.drops{grid-template-columns:1fr}}
+  .drop{
+    border:2px dashed var(--line);border-radius:13px;background:#fbf9f4;padding:18px 16px;
+    text-align:center;transition:.15s;cursor:pointer;position:relative;min-height:118px;
+    display:flex;flex-direction:column;justify-content:center;gap:6px;
   }
-  .scope b{color:var(--accent)}
-  .steps{
-    display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:22px;
-  }
-  @media(max-width:820px){.steps{grid-template-columns:1fr}}
-  .pane{
-    background:#fbf9f4;border:1px solid var(--line);border-radius:12px;
-    box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column;
-  }
-  .pane .head{
-    display:flex;align-items:center;gap:10px;padding:11px 14px;
-    border-bottom:1px solid var(--line);background:var(--paper-2);
-  }
-  .pane .head .badge{
-    font-family:"JetBrains Mono",monospace;font-weight:700;font-size:13px;
+  .drop:hover{border-color:var(--accent);background:#f7f4ec}
+  .drop.over{border-color:var(--accent);background:#eef4f2;transform:scale(1.01)}
+  .drop.loaded{border-style:solid;border-color:var(--accent);background:#eef4f2}
+  .drop .sec{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:13px;
+    color:var(--accent);letter-spacing:.02em}
+  .drop .lead{font-weight:700;font-size:14px}
+  .drop .note{font-size:11px;color:var(--ink-soft)}
+  .drop .file{display:none;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}
+  .drop.loaded .file{display:flex}
+  .drop.loaded .prompt{display:none}
+  .drop .fname{font-family:"JetBrains Mono",monospace;font-size:13px;font-weight:700}
+  .drop .meta{font-size:11px;color:var(--ink-soft)}
+  .drop .rm{border:1px solid var(--err);color:var(--err);background:transparent;
+    font-size:11px;font-weight:700;padding:3px 9px;border-radius:6px;cursor:pointer}
+  .drop .rm:hover{background:var(--err-bg)}
+
+  .pane{background:#fbf9f4;border:1px solid var(--line);border-radius:12px;
+    box-shadow:var(--shadow);overflow:hidden;margin-top:16px}
+  .pane .head{display:flex;align-items:center;gap:10px;padding:11px 14px;
+    border-bottom:1px solid var(--line);background:var(--paper-2)}
+  .pane .head .badge{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:13px;
     width:24px;height:24px;display:grid;place-items:center;border-radius:6px;
-    background:var(--ink);color:var(--paper);
-  }
-  .pane .head h2{font-size:14px;margin:0;font-weight:700;letter-spacing:-.01em}
+    background:var(--ink);color:var(--paper)}
+  .pane .head h2{font-size:14px;margin:0;font-weight:700}
   .pane .head .hint{margin-left:auto;font-size:11px;color:var(--ink-soft)}
-  textarea{
-    width:100%;border:0;resize:vertical;min-height:200px;padding:13px 14px;
+  textarea#inB{width:100%;border:0;resize:vertical;min-height:200px;padding:13px 14px;
     font-family:"JetBrains Mono",monospace;font-size:12px;line-height:1.5;
-    background:transparent;color:var(--ink);outline:none;
-  }
+    background:transparent;color:var(--ink);outline:none}
   textarea::placeholder{color:#b3ad9f}
-  .toolbar{
-    display:flex;gap:10px;align-items:center;margin-top:20px;flex-wrap:wrap;
-  }
-  button{
-    font-family:"Archivo",sans-serif;font-weight:700;font-size:14px;cursor:pointer;
+
+  .toolbar{display:flex;gap:10px;align-items:center;margin-top:20px;flex-wrap:wrap}
+  button{font-family:"Archivo",sans-serif;font-weight:700;font-size:14px;cursor:pointer;
     border-radius:9px;border:1px solid var(--ink);padding:11px 20px;transition:.12s;
-    background:var(--ink);color:var(--paper);letter-spacing:.01em;
-  }
-  button:hover{transform:translateY(-1px)}
-  button:active{transform:translateY(0)}
-  button.ghost{background:transparent;color:var(--ink)}
-  button.ghost:hover{background:var(--paper-2)}
+    background:var(--ink);color:var(--paper)}
+  button:hover{transform:translateY(-1px)} button:active{transform:translateY(0)}
+  button.ghost{background:transparent;color:var(--ink)} button.ghost:hover{background:var(--paper-2)}
   button.accent{background:var(--accent);border-color:var(--accent-ink)}
-  button:disabled{opacity:.4;cursor:not-allowed;transform:none}
   .msg{margin-left:auto;font-size:13px;font-weight:600}
   .msg.ok{color:var(--ok)} .msg.err{color:var(--err)}
 
   section.result{margin-top:30px;display:none}
   section.result.show{display:block;animation:rise .35s ease both}
   @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-
   .summary{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
-  .stat{
-    border:1px solid var(--line);border-radius:10px;background:#fbf9f4;
-    padding:8px 14px;min-width:96px;
-  }
+  .stat{border:1px solid var(--line);border-radius:10px;background:#fbf9f4;padding:8px 14px;min-width:92px}
   .stat .n{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:20px;line-height:1}
   .stat .l{font-size:11px;color:var(--ink-soft);margin-top:3px}
-  .stat.bad .n{color:var(--err)}
-  .stat.warn .n{color:var(--warn)}
-
-  .banner{
-    border-radius:10px;padding:11px 14px;font-size:13px;font-weight:600;margin-bottom:14px;
-    display:flex;gap:9px;align-items:flex-start;
-  }
+  .stat.bad .n{color:var(--err)} .stat.warn .n{color:var(--warn)}
+  .banner{border-radius:10px;padding:11px 14px;font-size:13px;font-weight:600;margin-bottom:10px;
+    display:flex;gap:9px;align-items:flex-start}
   .banner.warn{background:var(--warn-bg);color:var(--warn);border:1px solid #e7c48a}
   .banner.err{background:var(--err-bg);color:var(--err);border:1px solid #e3a596}
+  .banner.ok{background:var(--ok-bg);color:var(--ok);border:1px solid #aacdb4}
 
   .sec-title{font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
-    color:var(--ink-soft);margin:24px 0 10px}
-
-  table.cmp{
-    width:100%;border-collapse:collapse;font-size:12.5px;background:#fbf9f4;
-    border:1px solid var(--line);border-radius:12px;overflow:hidden;
-  }
-  table.cmp th{
-    text-align:left;font-size:11px;letter-spacing:.03em;text-transform:uppercase;
+    color:var(--ink-soft);margin:22px 0 9px;display:flex;align-items:center;gap:8px}
+  .sec-title .tag{font-family:"JetBrains Mono",monospace;background:var(--accent);color:var(--paper);
+    padding:2px 7px;border-radius:4px;font-size:11px;text-transform:none}
+  table.cmp{width:100%;border-collapse:collapse;font-size:12.5px;background:#fbf9f4;
+    border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  table.cmp th{text-align:left;font-size:11px;letter-spacing:.03em;text-transform:uppercase;
     color:var(--ink-soft);font-weight:700;padding:9px 12px;background:var(--paper-2);
-    border-bottom:1px solid var(--line);white-space:nowrap;
-  }
+    border-bottom:1px solid var(--line);white-space:nowrap}
   table.cmp td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
   table.cmp tr:last-child td{border-bottom:0}
   table.cmp .no{font-family:"JetBrains Mono",monospace;color:var(--ink-soft);width:34px}
   table.cmp .name{font-weight:500}
-  table.cmp tr.mismatch{background:var(--err-bg)}
-  table.cmp tr.nopair{background:var(--warn-bg)}
-  .pill{
-    font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:700;
-    padding:2px 8px;border-radius:20px;display:inline-block;white-space:nowrap;
-  }
+  table.cmp tr.bonly{background:var(--err-bg)}
+  table.cmp tr.aonly{background:var(--warn-bg)}
+  .pill{font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:700;
+    padding:2px 8px;border-radius:20px;display:inline-block;white-space:nowrap}
   .pill.match{background:var(--ok-bg);color:var(--ok)}
   .pill.nomatch{background:var(--err-bg);color:var(--err)}
-  .pill.has{background:#e3eeec;color:var(--accent)}
-  .pill.empty{background:#ece9e0;color:var(--ignore)}
-  .g{font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:700;letter-spacing:.02em}
-  .g.frame{color:var(--frame)}
-  .g.ignore{color:var(--ignore)}
+  .pill.has{background:#e3eeec;color:var(--accent)} .pill.empty{background:#ece9e0;color:var(--ignore)}
+  .g{font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:700}
+  .g.frame{color:var(--accent)} .g.ignore{color:var(--ignore)} .g.keep{color:var(--ink-soft)}
   .flag{color:var(--err);font-size:11px;font-weight:700;display:block;margin-top:3px}
+  .softflag{color:var(--warn);font-size:11px;font-weight:600;display:block;margin-top:3px}
 
   .out-head{display:flex;align-items:center;gap:12px;margin:24px 0 10px}
-  .out-head .sec-title{margin:0}
-  .out-head .len{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-soft)}
-  #output{
-    width:100%;min-height:120px;border:1px solid var(--line);border-radius:12px;
-    background:#15302e;color:#d6ece8;font-family:"JetBrains Mono",monospace;
-    font-size:11.5px;line-height:1.45;padding:14px;resize:vertical;white-space:pre-wrap;
-    word-break:break-all;
-  }
+  .out-head .sec-title{margin:0} .out-head .len{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-soft)}
+  #output{width:100%;min-height:120px;border:1px solid var(--line);border-radius:12px;
+    background:#15302e;color:#d6ece8;font-family:"JetBrains Mono",monospace;font-size:11.5px;
+    line-height:1.45;padding:14px;resize:vertical;white-space:pre-wrap;word-break:break-all}
   footer{margin-top:40px;font-size:11px;color:var(--ink-soft);text-align:center}
 </style>
 </head>
@@ -169,208 +132,267 @@
 <div class="wrap">
   <header class="app">
     <div class="title">
-      <h1>Schedule&nbsp;Merger</h1>
-      <span class="ver">v1</span>
-      <span class="sub">A の試験スケジュールを B（CMS書き出しJSON）へ反映し B′ を生成</span>
+      <h1>SSW&nbsp;Schedule&nbsp;Merger</h1>
+      <span class="ver">v2</span>
+      <span class="sub">A / A2 を B へ名前ベースで反映し B′ を生成</span>
     </div>
-    <div class="scope">対象セクション: <b>Specified Skilled Worker (i)</b></div>
+    <div class="scope">分野名完全マッチング · 片方の一号、二号のみ可 · 不一致は無変更で警告</div>
   </header>
 
-  <div class="steps">
-    <div class="pane">
-      <div class="head"><span class="badge">A</span><h2>更新スケジュール</h2>
-        <span class="hint">■分野見出し区切りのテキスト</span></div>
-      <textarea id="inA" spellcheck="false" placeholder="■For All Fields&#10;<p class=&quot;m-txt-table-caption m-txt-p&quot;>Exam schedule</p>&#10;<table class=&quot;m-table-common&quot;> … </table>&#10;&#10;■Nursing Care Field&#10; …"></textarea>
+  <!-- ドロップゾーン -->
+  <div class="drops">
+    <div class="drop" id="dropA" data-key="A">
+      <div class="prompt">
+        <div class="sec">(i) セクション</div>
+        <div class="lead">一号データをドロップ</div>
+        <div class="note">.txt をドラッグ&amp;ドロップ／クリックで選択</div>
+      </div>
+      <div class="file">
+        <div><span class="fname" id="fnameA"></span><span class="meta" id="metaA"></span></div>
+        <button class="rm" data-key="A">✕ 取り消し</button>
+      </div>
+      <input type="file" id="fileA" accept=".txt,text/plain" hidden>
     </div>
-    <div class="pane">
-      <div class="head"><span class="badge">B</span><h2>現行コンテンツ</h2>
-        <span class="hint">CMSエクスポートのJSON配列</span></div>
-      <textarea id="inB" spellcheck="false" placeholder="[{&quot;id&quot;:&quot;…&quot;,&quot;type&quot;:&quot;headline&quot;, … },{ … }]"></textarea>
+
+    <div class="drop" id="dropA2" data-key="A2">
+      <div class="prompt">
+        <div class="sec">(ii) セクション</div>
+        <div class="lead">二号データをドロップ</div>
+        <div class="note">.txt をドラッグ&amp;ドロップ／クリックで選択</div>
+      </div>
+      <div class="file">
+        <div><span class="fname" id="fnameA2"></span><span class="meta" id="metaA2"></span></div>
+        <button class="rm" data-key="A2">✕ 取り消し</button>
+      </div>
+      <input type="file" id="fileA2" accept=".txt,text/plain" hidden>
     </div>
+  </div>
+
+  <!-- B -->
+  <div class="pane">
+    <div class="head"><span class="badge">B</span><h2>CMSエクスポートのJSONをコピペ</h2>
+      <span class="hint">ここに貼り付け</span></div>
+    <textarea id="inB" spellcheck="false" placeholder="[{&quot;id&quot;:&quot;…&quot;,&quot;type&quot;:&quot;headline&quot;, … },{ … }]"></textarea>
   </div>
 
   <div class="toolbar">
     <button class="accent" id="run">変換を実行</button>
-    <button class="ghost" id="clear">クリア</button>
+    <button class="ghost" id="clear">すべてクリア</button>
     <span class="msg" id="msg"></span>
   </div>
 
   <section class="result" id="result">
     <div class="summary" id="summary"></div>
     <div id="banners"></div>
-
-    <div class="sec-title">照合表（位置ベースで上から対応／名前は確認用）</div>
-    <table class="cmp">
-      <thead>
-        <tr>
-          <th class="no">#</th>
-          <th>分野名 A</th>
-          <th>分野名 B</th>
-          <th>一致</th>
-          <th>A テーブル</th>
-          <th>反映後 group</th>
-        </tr>
-      </thead>
-      <tbody id="cmpBody"></tbody>
-    </table>
+    <div id="tables"></div>
 
     <div class="out-head">
-      <div class="sec-title">B′ 出力（minified JSON）</div>
+      <div class="sec-title" style="text-transform:uppercase">B′ 出力（minified JSON）</div>
       <span class="len" id="outLen"></span>
       <button class="ghost" id="copy" style="margin-left:auto;padding:7px 14px;font-size:13px">コピー</button>
     </div>
     <textarea id="output" spellcheck="false" readonly></textarea>
   </section>
 
-  <footer>位置ベース置換 · 名前は照合表示のみ · (i)セクションのテーブル入り richtext を上から順に処理</footer>
+  <footer>名前ベース照合 · (i)=データA / (ii)=データA2 · データ行があれば frame / 無ければ ignore</footer>
 </div>
 
 <script>
 (function(){
-  const $ = id => document.getElementById(id);
-  const norm = s => (s||'').replace(/\s+/g,'').toLowerCase();
+  const $=id=>document.getElementById(id);
+  const norm=s=>(s||'').replace(/\s+/g,'').toLowerCase();
+  const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const state={A:null,A2:null}; // {text, name, count}
 
-  // A をパース → [{name, hasTable, content, malformed}]
+  // ---- A パース ----
   function parseA(raw){
-    raw = raw.replace(/^\uFEFF/,'');
-    const parts = raw.split(/^■/m).map(s=>s).filter(s=>s.trim().length);
+    raw=raw.replace(/^\uFEFF/,'');
+    const parts=raw.split(/^■/m).filter(s=>s.trim().length);
     return parts.map(p=>{
-      const nl = p.indexOf('\n');
-      const name = (nl<0 ? p : p.slice(0,nl)).trim();
-      const body = nl<0 ? '' : p.slice(nl+1);
-      const hasTable = /m-table-common/.test(body);
-      let content = '';
-      let malformed = false;
-      if(hasTable){
-        const m = body.match(/<p class="m-txt-table-caption[\s\S]*?<\/table>/);
-        content = m ? m[0] : body.trim();
-        // 壊れたセル検出（例: <td></tbody>）
-        if(/<td>\s*<\/(tbody|table)>/.test(content)) malformed = true;
+      const nl=p.indexOf('\n');
+      const name=(nl<0?p:p.slice(0,nl)).trim();
+      const body=nl<0?'':p.slice(nl+1);
+      const rows=(body.match(/<tr>\s*<td>/g)||[]).length;
+      const hasData=rows>0;
+      let content='',malformed=false;
+      if(/m-table-common/.test(body)){
+        const m=body.match(/<p class="m-txt-table-caption[\s\S]*?<\/table>/);
+        content=m?m[0]:'';
+        if(/<td>\s*<\/(tbody|table)>/.test(content)) malformed=true;
       }
-      return {name, hasTable, content, malformed};
+      return {name,hasData,rows,content,malformed};
     });
   }
 
-  // B をパース → {data, slots:[{name, block}], iFound}
+  // ---- B パース：セクションごとのスロット ----
   function parseB(raw){
-    const data = JSON.parse(raw);
+    const data=JSON.parse(raw);
     if(!Array.isArray(data)) throw new Error('B は JSON配列ではありません。');
-    let iStart=-1, iEnd=-1;
+    let i0=-1,i1=-1;
     data.forEach((b,idx)=>{
-      if(b && b.type==='headline' && b['headline-type']==='lv2'){
-        const t = b['headline-text']||'';
-        if(/\(i\)\s*exam schedule/i.test(t) && !/\(ii\)/i.test(t)) iStart=idx;
-        if(/\(ii\)\s*exam schedule/i.test(t)) iEnd=idx;
+      if(b&&b.type==='headline'&&b['headline-type']==='lv2'){
+        const t=b['headline-text']||'';
+        if(/\(i\)\s*exam/i.test(t)&&!/\(ii\)/i.test(t)) i0=idx;
+        if(/\(ii\)\s*exam/i.test(t)) i1=idx;
       }
     });
-    if(iStart<0) throw new Error('B 内に「(i) exam schedule」の見出しが見つかりません。');
-    if(iEnd<0 || iEnd<iStart) iEnd = data.length; // (ii)が無ければ末尾まで
-    // 各 frame 見出し直後の最初の richtext をスロットに
-    const slots=[]; let cur=null, taken=true;
-    for(let idx=iStart; idx<iEnd; idx++){
-      const b=data[idx];
-      if(b && b.type==='headline' && b['headline-type']==='frame'){ cur=b['headline-text']||''; taken=false; }
-      else if(b && b.type==='richtext' && !taken && cur!==null){ slots.push({name:cur, block:b}); taken=true; }
+    function slots(s,e){
+      const r=[];let cur=null,taken=true;
+      for(let idx=s;idx<e;idx++){
+        const b=data[idx];
+        if(b&&b.type==='headline'&&b['headline-type']==='frame'){cur=b['headline-text']||'';taken=false;}
+        else if(b&&b.type==='richtext'&&!taken){r.push({name:cur,block:b});taken=true;}
+      }
+      return r;
     }
-    return {data, slots};
+    const out={data,i:null,ii:null};
+    if(i0>=0){ const end=(i1>=0)?i1:data.length; out.i=slots(i0,end); }
+    if(i1>=0){ out.ii=slots(i1,data.length); }
+    return out;
   }
 
-  function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  // ---- 1セクション反映 ----
+  function applySection(A,slots){
+    const amap={};A.forEach(a=>{if(!(norm(a.name) in amap))amap[norm(a.name)]=a;});
+    const used={},rows=[];
+    const c={framed:0,ignored:0,bonly:0,aonly:0,malformed:0,casevar:0,aonlyData:0};
+    slots.forEach(s=>{
+      const a=amap[norm(s.name)];
+      if(!a){ rows.push({type:'bonly',bn:s.name}); c.bonly++; return; }
+      used[norm(a.name)]=1;
+      const casevar=(a.name.trim()!==(s.name||'').trim());
+      if(casevar) c.casevar++;
+      let g;
+      if(a.hasData){ s.block.content=a.content; s.block.group='frame'; g='frame'; c.framed++; if(a.malformed)c.malformed++; }
+      else { s.block.group='ignore'; g='ignore'; c.ignored++; }
+      rows.push({type:'pair',an:a.name,bn:s.name,hasData:a.hasData,rows:a.rows,g,casevar,malformed:a.malformed});
+    });
+    A.forEach(a=>{ if(!used[norm(a.name)]){ rows.push({type:'aonly',an:a.name,hasData:a.hasData}); c.aonly++; if(a.hasData)c.aonlyData++; } });
+    return {rows,c};
+  }
 
-  $('run').addEventListener('click', run);
-  $('clear').addEventListener('click', ()=>{
-    $('inA').value=''; $('inB').value=''; $('result').classList.remove('show');
-    setMsg('','');
+  function renderTable(rows){
+    return `<table class="cmp"><thead><tr>
+      <th class="no">#</th><th>分野名 A</th><th>分野名 B</th><th>照合</th><th>A テーブル</th><th>反映後 group</th>
+      </tr></thead><tbody>`+rows.map((r,i)=>{
+      if(r.type==='bonly'){
+        return `<tr class="bonly"><td class="no">${i+1}</td>
+          <td class="name"><i style="color:#b3ad9f">— 該当なし</i></td>
+          <td class="name">${esc(r.bn)}</td>
+          <td><span class="pill nomatch">✗ Aに無し</span></td>
+          <td>—</td><td><span class="g keep">変更せず</span></td></tr>`;
+      }
+      if(r.type==='aonly'){
+        return `<tr class="aonly"><td class="no">${i+1}</td>
+          <td class="name">${esc(r.an)}${r.hasData?'<span class="flag">⚠ データ有：反映先なし</span>':''}</td>
+          <td class="name"><i style="color:#b3ad9f">— スロットなし</i></td>
+          <td><span class="pill nomatch">Bに無し</span></td>
+          <td><span class="pill ${r.hasData?'has':'empty'}">${r.hasData?'○ あり':'× 空'}</span></td>
+          <td><span class="g keep">—</span></td></tr>`;
+      }
+      return `<tr><td class="no">${i+1}</td>
+        <td class="name">${esc(r.an)}${r.malformed?'<span class="flag">⚠ テーブル構造が不完全</span>':''}</td>
+        <td class="name">${esc(r.bn)}${r.casevar?'<span class="softflag">表記ゆれ（吸収して一致）</span>':''}</td>
+        <td><span class="pill match">✓ 一致</span></td>
+        <td><span class="pill ${r.hasData?'has':'empty'}">${r.hasData?'○ '+r.rows+'行':'× 空'}</span></td>
+        <td><span class="g ${r.g}">${r.g}</span></td></tr>`;
+    }).join('')+`</tbody></table>`;
+  }
+
+  // ---- 実行 ----
+  $('run').addEventListener('click',()=>{
+    const bRaw=$('inB').value;
+    if(!bRaw.trim()){ setMsg('B を貼り付けてください。','err'); return; }
+    if(!state.A&&!state.A2){ setMsg('データ A または A2 を少なくとも1つ読み込んでください。','err'); return; }
+    let P; try{ P=parseB(bRaw); }catch(e){ setMsg('B の解析に失敗: '+e.message,'err'); return; }
+
+    const banners=[],tables=[];
+    let framed=0,ignored=0,bonly=0,aonly=0,malformed=0,casevar=0,aonlyData=0,sections=0;
+
+    function handle(label,A,slots){
+      if(!A) return;
+      if(!slots){ banners.push(`<div class="banner err">⚠ <span>${label} のデータは読み込まれていますが、B 内に該当セクションの見出しが見つかりません。このセクションはスキップしました。</span></div>`); return; }
+      sections++;
+      const {rows,c}=applySection(A,slots);
+      framed+=c.framed;ignored+=c.ignored;bonly+=c.bonly;aonly+=c.aonly;malformed+=c.malformed;casevar+=c.casevar;aonlyData+=c.aonlyData;
+      tables.push(`<div class="sec-title"><span class="tag">${label}</span> 照合表</div>`+renderTable(rows));
+    }
+    handle('(i)', state.A?parseA(state.A.text):null, P.i);
+    handle('(ii)', state.A2?parseA(state.A2.text):null, P.ii);
+
+    const out=JSON.stringify(P.data);
+    $('output').value=out; $('outLen').textContent=out.length.toLocaleString()+' 文字';
+
+    $('summary').innerHTML=
+      stat(sections,'処理セクション')+
+      stat(framed,'frame 化（表示）')+
+      stat(ignored,'ignore 化（非表示）')+
+      stat(bonly,'A該当なし',bonly?'bad':'')+
+      stat(aonly,'B行き場なし',aonly?'warn':'')+
+      stat(malformed,'要確認テーブル',malformed?'warn':'');
+
+    if(bonly>0) banners.push(`<div class="banner err">⚠ <span>B 側に <b>${bonly}</b> 件、A に対応分野が無いスロットがあります（名前不一致の可能性）。該当行は<b>変更していません</b>。上流ツールの分野名をご確認ください。</span></div>`);
+    if(aonlyData>0) banners.push(`<div class="banner warn">⚠ <span>A 側に、データを持つのに B に反映先が無い分野が <b>${aonlyData}</b> 件あります。内容が反映されていません。</span></div>`);
+    if(malformed>0) banners.push(`<div class="banner warn">⚠ <span>テーブル構造が不完全な分野が <b>${malformed}</b> 件あります（元データ要確認）。</span></div>`);
+    if(casevar>0) banners.push(`<div class="banner ok">ℹ <span>表記ゆれ（大文字小文字・空白差）を <b>${casevar}</b> 件吸収して一致させました。</span></div>`);
+    $('banners').innerHTML=banners.join('');
+    $('tables').innerHTML=tables.join('');
+
+    $('result').classList.add('show');
+    setMsg(`変換完了：${framed+ignored} スロット反映`,'ok');
   });
-  $('copy').addEventListener('click', async ()=>{
+
+  $('clear').addEventListener('click',()=>{
+    state.A=state.A2=null; renderDrop('A'); renderDrop('A2');
+    $('inB').value=''; $('result').classList.remove('show'); setMsg('','');
+  });
+  $('copy').addEventListener('click',async()=>{
     try{ await navigator.clipboard.writeText($('output').value);
-      $('copy').textContent='コピーしました ✓';
-      setTimeout(()=>$('copy').textContent='コピー',1500);
+      $('copy').textContent='コピーしました ✓'; setTimeout(()=>$('copy').textContent='コピー',1500);
     }catch(e){ $('output').select(); document.execCommand('copy'); }
   });
 
+  // ---- ドロップゾーン ----
+  ['A','A2'].forEach(key=>{
+    const zone=$('drop'+key), input=$('file'+key);
+    zone.addEventListener('click',e=>{ if(e.target.classList.contains('rm'))return; input.click(); });
+    input.addEventListener('change',()=>{ if(input.files[0]) readFile(key,input.files[0]); input.value=''; });
+    zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('over');});
+    zone.addEventListener('dragleave',e=>{zone.classList.remove('over');});
+    zone.addEventListener('drop',e=>{
+      e.preventDefault();zone.classList.remove('over');
+      const f=e.dataTransfer.files[0]; if(f) readFile(key,f);
+    });
+  });
+  document.querySelectorAll('.rm').forEach(btn=>btn.addEventListener('click',e=>{
+    e.stopPropagation(); const k=btn.dataset.key; state[k]=null; renderDrop(k);
+  }));
+  // ページ全体での誤ドロップ無効化
+  ['dragover','drop'].forEach(ev=>document.addEventListener(ev,e=>{
+    if(!e.target.closest('.drop')) e.preventDefault();
+  }));
+
+  function readFile(key,file){
+    const fr=new FileReader();
+    fr.onload=()=>{
+      const text=fr.result;
+      const count=(text.match(/^■/gm)||[]).length;
+      state[key]={text,name:file.name,count};
+      renderDrop(key); setMsg('','');
+    };
+    fr.readAsText(file);
+  }
+  function renderDrop(key){
+    const zone=$('drop'+key);
+    if(state[key]){
+      zone.classList.add('loaded');
+      $('fname'+key).textContent=state[key].name;
+      $('meta'+key).textContent='　'+state[key].count+' 分野を検出';
+    } else { zone.classList.remove('loaded'); }
+  }
+
   function setMsg(t,cls){const m=$('msg');m.textContent=t;m.className='msg'+(cls?' '+cls:'');}
-
-  function run(){
-    const aRaw=$('inA').value, bRaw=$('inB').value;
-    if(!aRaw.trim()||!bRaw.trim()){ setMsg('A と B の両方を貼り付けてください。','err'); return; }
-    let A, B;
-    try{ A = parseA(aRaw); }
-    catch(e){ setMsg('A の解析に失敗: '+e.message,'err'); return; }
-    let parsed;
-    try{ parsed = parseB(bRaw); }
-    catch(e){ setMsg('B の解析に失敗: '+e.message,'err'); return; }
-    const {data, slots} = parsed;
-
-    const n = Math.max(A.length, slots.length);
-    let matches=0, mismatches=0, frames=0, ignores=0, malformed=0;
-    const rows=[];
-    for(let i=0;i<n;i++){
-      const a=A[i], s=slots[i];
-      if(a && s){
-        const isMatch = norm(a.name)===norm(s.name);
-        isMatch?matches++:mismatches++;
-        // 反映
-        let newG;
-        if(a.hasTable){ s.block.content=a.content; s.block.group='frame'; newG='frame'; frames++; if(a.malformed) malformed++; }
-        else { s.block.group='ignore'; newG='ignore'; ignores++; }
-        rows.push({i,an:a.name,bn:s.name,match:isMatch,has:a.hasTable,malformed:a.malformed,g:newG});
-      } else {
-        rows.push({i,an:a?a.name:null,bn:s?s.name:null,nopair:true});
-      }
-    }
-
-    // 出力
-    const out = JSON.stringify(data);
-    $('output').value = out;
-    $('outLen').textContent = out.length.toLocaleString()+' 文字';
-
-    // サマリ
-    $('summary').innerHTML =
-      stat(matches,'名前一致') +
-      stat(mismatches,'名前不一致', mismatches?'bad':'') +
-      stat(frames,'frame 化（表示）') +
-      stat(ignores,'ignore 化（非表示）') +
-      stat(malformed,'要確認テーブル', malformed?'warn':'');
-
-    // バナー
-    let banners='';
-    if(A.length!==slots.length){
-      banners += `<div class="banner err">⚠ <span>A の分野数（${A.length}）と B のスロット数（${slots.length}）が一致しません。上詰めで対応付けています。余剰行は「対応なし」と表示します。</span></div>`;
-    }
-    if(mismatches>0){
-      banners += `<div class="banner warn">⚠ <span>名前が一致しない行が ${mismatches} 件あります（位置ベースなので処理は実行済み）。下表の赤い行をご確認ください。</span></div>`;
-    }
-    if(malformed>0){
-      banners += `<div class="banner warn">⚠ <span>テーブル構造が不完全な分野が ${malformed} 件あります（例: セルが閉じていない）。元データをご確認ください。</span></div>`;
-    }
-    $('banners').innerHTML = banners;
-
-    // 照合表
-    $('cmpBody').innerHTML = rows.map(r=>{
-      if(r.nopair){
-        return `<tr class="nopair"><td class="no">${r.i+1}</td>
-          <td class="name">${r.an?esc(r.an):'<i style="color:#b3ad9f">—</i>'}</td>
-          <td class="name">${r.bn?esc(r.bn):'<i style="color:#b3ad9f">—</i>'}</td>
-          <td colspan="3"><span class="pill nomatch">対応なし</span></td></tr>`;
-      }
-      return `<tr class="${r.match?'':'mismatch'}">
-        <td class="no">${r.i+1}</td>
-        <td class="name">${esc(r.an)}${r.malformed?'<span class="flag">⚠ テーブル構造が不完全</span>':''}</td>
-        <td class="name">${esc(r.bn)}</td>
-        <td><span class="pill ${r.match?'match':'nomatch'}">${r.match?'✓ 一致':'✗ 不一致'}</span></td>
-        <td><span class="pill ${r.has?'has':'empty'}">${r.has?'○ あり':'× 空'}</span></td>
-        <td><span class="g ${r.g}">${r.g}</span></td>
-      </tr>`;
-    }).join('');
-
-    $('result').classList.add('show');
-    setMsg(`変換完了：${frames+ignores} スロット処理`, 'ok');
-  }
-
-  function stat(n,l,cls){
-    return `<div class="stat ${cls||''}"><div class="n">${n}</div><div class="l">${l}</div></div>`;
-  }
+  function stat(n,l,cls){return `<div class="stat ${cls||''}"><div class="n">${n}</div><div class="l">${l}</div></div>`;}
 })();
 </script>
 </body>
