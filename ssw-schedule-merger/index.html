@@ -200,7 +200,13 @@
 <script>
 (function(){
   const $=id=>document.getElementById(id);
-  const norm=s=>(s||'').replace(/\s+/g,'').toLowerCase();
+  // 正規化: ルビの読み(<rt>)・括弧(<rp>)を除去 → 残りのタグも除去 → 空白除去 → 小文字
+  const stripRuby=s=>(s||'')
+    .replace(/<rt>[\s\S]*?<\/rt>/gi,'')
+    .replace(/<rp>[\s\S]*?<\/rp>/gi,'')
+    .replace(/<[^>]+>/g,'');
+  const norm=s=>stripRuby(s).replace(/\s+/g,'').toLowerCase();
+  const disp=s=>stripRuby(s).trim();   // 照合表の表示用（プレーン化）
   const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const state={A:null,A2:null}; // {text, name, count}
 
@@ -229,13 +235,17 @@
     const data=JSON.parse(raw);
     if(!Array.isArray(data)) throw new Error('B は JSON配列ではありません。');
     let i0=-1,i1=-1;
+    const lv2=[];
     data.forEach((b,idx)=>{
       if(b&&b.type==='headline'&&b['headline-type']==='lv2'){
+        lv2.push(idx);
         const t=b['headline-text']||'';
         if(/\(i\)\s*exam/i.test(t)&&!/\(ii\)/i.test(t)) i0=idx;
         if(/\(ii\)\s*exam/i.test(t)) i1=idx;
       }
     });
+    // 英語パターンで見つからない場合（多言語）: lv2見出しの最後の2つを (i),(ii) とみなす
+    if(i0<0&&i1<0&&lv2.length>=2){ i0=lv2[lv2.length-2]; i1=lv2[lv2.length-1]; }
     function slots(s,e){
       const r=[];let cur=null,taken=true;
       for(let idx=s;idx<e;idx++){
@@ -260,7 +270,7 @@
       const a=amap[norm(s.name)];
       if(!a){ rows.push({type:'bonly',bn:s.name}); c.bonly++; return; }
       used[norm(a.name)]=1;
-      const casevar=(a.name.trim()!==(s.name||'').trim());
+      const casevar=(disp(a.name)!==disp(s.name||''));
       if(casevar) c.casevar++;
       let g;
       if(a.hasData){ s.block.content=a.content; s.block.group='frame'; g='frame'; c.framed++; if(a.malformed)c.malformed++; }
@@ -278,21 +288,21 @@
       if(r.type==='bonly'){
         return `<tr class="bonly"><td class="no">${i+1}</td>
           <td class="name"><i style="color:#b3ad9f">— 該当なし</i></td>
-          <td class="name">${esc(r.bn)}</td>
+          <td class="name">${esc(disp(r.bn))}</td>
           <td><span class="pill nomatch">✗ Aに無し</span></td>
           <td>—</td><td><span class="g keep">変更せず</span></td></tr>`;
       }
       if(r.type==='aonly'){
         return `<tr class="aonly"><td class="no">${i+1}</td>
-          <td class="name">${esc(r.an)}${r.hasData?'<span class="flag">⚠ データ有：反映先なし</span>':''}</td>
+          <td class="name">${esc(disp(r.an))}${r.hasData?'<span class="flag">⚠ データ有：反映先なし</span>':''}</td>
           <td class="name"><i style="color:#b3ad9f">— スロットなし</i></td>
           <td><span class="pill nomatch">Bに無し</span></td>
           <td><span class="pill ${r.hasData?'has':'empty'}">${r.hasData?'○ あり':'× 空'}</span></td>
           <td><span class="g keep">—</span></td></tr>`;
       }
       return `<tr><td class="no">${i+1}</td>
-        <td class="name">${esc(r.an)}${r.malformed?'<span class="flag">⚠ テーブル構造が不完全</span>':''}</td>
-        <td class="name">${esc(r.bn)}${r.casevar?'<span class="softflag">表記ゆれ（吸収して一致）</span>':''}</td>
+        <td class="name">${esc(disp(r.an))}${r.malformed?'<span class="flag">⚠ テーブル構造が不完全</span>':''}</td>
+        <td class="name">${esc(disp(r.bn))}${r.casevar?'<span class="softflag">表記ゆれ（吸収して一致）</span>':''}</td>
         <td><span class="pill match">✓ 一致</span></td>
         <td><span class="pill ${r.hasData?'has':'empty'}">${r.hasData?'○ '+r.rows+'行':'× 空'}</span></td>
         <td><span class="g ${r.g}">${r.g}</span></td></tr>`;
