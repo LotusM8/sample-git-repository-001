@@ -148,7 +148,7 @@
       <div class="toggle-thumb"></div>
     </label>
   </div>
-  <p class="setting-note">音声認識はChrome/Edgeで動作します（Safari・Firefoxは未対応）。Androidは最新版のChromeが必要です</p>
+  <p class="setting-note">音声認識はChrome / Edge / Safari（iPhone含む）で動作します（Firefoxは未対応）。Androidでは音声認識中、エフェクトは声の認識に連動する簡易モードに切り替わります</p>
   <div class="toggle-row" style="margin-bottom:0">
     <span class="setting-label" style="margin:0">帯域インジケーター</span>
     <label class="toggle-switch">
@@ -221,17 +221,39 @@ let micStream = null;
 let isActive = false;
 let volume   = 0;
 
+// 【Android対策】Android ChromeではgetUserMediaとSpeechRecognitionが
+// マイクを同時に使えない（認識側が無音になる）。そのためAndroidでは
+// 音声認識中はマイクを認識エンジンに明け渡し、エフェクトは認識イベントに
+// 連動する「スピーチ駆動モード」へ切り替える。
+const IS_ANDROID = /Android/i.test(navigator.userAgent);
+let speechDriven = false;  // Android: 認識イベント駆動モード中
+let speechPulse  = 0;      // 認識イベント由来の擬似音量(0〜1)
+
+async function acquireMic() {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
+  micStream = stream;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const source = audioCtx.createMediaStreamSource(stream);
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 256;
+  analyser.smoothingTimeConstant = 0.88;
+  dataArray = new Uint8Array(analyser.frequencyBinCount);
+  source.connect(analyser);
+}
+
+function releaseMic() {
+  if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+  if (audioCtx)  { try { audioCtx.close(); } catch(e) {} audioCtx = null; }
+  analyser = null;
+}
+
 async function startAudio() {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
-    micStream = stream;
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const source = audioCtx.createMediaStreamSource(stream);
-    analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 256;
-    analyser.smoothingTimeConstant = 0.88;
-    dataArray = new Uint8Array(analyser.frequencyBinCount);
-    source.connect(analyser);
+    if (IS_ANDROID && speechToggle.checked) {
+      speechDriven = true; // マイクは認識エンジン側が使う
+    } else {
+      await acquireMic();
+    }
     isActive = true;
     micBtn.classList.add('hidden');
     errMsg.style.display = 'none';
@@ -360,6 +382,8 @@ function startSpeech() {
   recognition.onresult = (e) => {
     speechGotResult = true;
     speechFailCount = 0;
+    // スピーチ駆動モード用パルス：認識イベントのたびにエフェクトを咲かせる
+    speechPulse = Math.min(1, 0.55 + Math.random() * 0.3);
     for (let i = e.resultIndex; i < e.results.length; i++) {
       if (e.results[i].isFinal) {
         const t = e.results[i][0].transcript.trim();
@@ -368,12 +392,13 @@ function startSpeech() {
     }
   };
 
+  recognition.onspeechstart = () => { speechPulse = Math.max(speechPulse, 0.7); };
+
   recognition.onerror = (e) => {
     // 'no-speech' / 'aborted' / 'audio-capture' はonend側の再起動に任せる
     if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
       showSpeechError('音声認識を開始できませんでした（権限または非対応ブラウザの可能性）');
-      speechToggle.checked = false;
-      stopSpeech();
+      disableSpeech();
     }
   };
 
@@ -383,9 +408,8 @@ function startSpeech() {
     const dur = Date.now() - speechStartTime;
     if (!speechGotResult && dur < 2000) speechFailCount++;
     if (speechFailCount >= 5) {
-      showSpeechError('この端末ではビジュアライザーと音声認識の同時利用が制限されているようです。Chromeを最新版に更新するとご利用いただける場合があります');
-      speechToggle.checked = false;
-      stopSpeech();
+      showSpeechError('この端末では音声認識を継続できないようです');
+      disableSpeech();
       return;
     }
     // Androidでは即時再起動が失敗しやすいため少し待つ
@@ -399,11 +423,22 @@ function startSpeech() {
 function stopSpeech() {
   clearTimeout(speechRestartTimer);
   speechFailCount = 0;
+  speechPulse = 0;
   if (speechTrack) { try { speechTrack.stop(); } catch(e) {} speechTrack = null; }
   if (recognition) {
     recognition.onend = null; // 自動再起動を止める
     try { recognition.stop(); } catch(e) {}
     recognition = null;
+  }
+}
+
+// 音声認識をオフにし、Androidモードだった場合はマイク解析へ復帰する
+async function disableSpeech() {
+  stopSpeech();
+  speechToggle.checked = false;
+  if (speechDriven) {
+    speechDriven = false;
+    try { await acquireMic(); } catch(e) {}
   }
 }
 
@@ -413,9 +448,21 @@ function showSpeechError(msg) {
   setTimeout(() => { errMsg.style.display = 'none'; }, 6000);
 }
 
-speechToggle.addEventListener('change', () => {
-  if (speechToggle.checked && isActive) startSpeech();
-  else stopSpeech();
+speechToggle.addEventListener('change', async () => {
+  if (speechToggle.checked && isActive) {
+    if (IS_ANDROID) {
+      // Android: マイクを認識エンジンへ明け渡し、スピーチ駆動モードへ
+      releaseMic();
+      speechDriven = true;
+    }
+    startSpeech();
+  } else {
+    stopSpeech();
+    if (speechDriven) {
+      speechDriven = false;
+      try { await acquireMic(); } catch(e) {}
+    }
+  }
 });
 
 // ---- Petal（帯域タイプ対応・控えめ調整版） ----
@@ -590,7 +637,19 @@ function spawnWave(vol) { centerWaves.push(new CenterWave(vol)); }
 function animate() {
   requestAnimationFrame(animate);
 
-  const bands = getBands();
+  let bands = getBands();
+
+  // 【Androidスピーチ駆動モード】マイク解析の代わりに
+  // 認識イベント由来のパルスでエフェクトを駆動する
+  if (speechDriven) {
+    speechPulse *= 0.965; // ゆっくり減衰
+    bands = {
+      low:   0,
+      mid:   speechPulse * 0.55,
+      high:  speechPulse * 0.22,
+      total: speechPulse * 0.38,
+    };
+  }
 
   // 低音ノイズフロア自動キャリブレーション
   // PCファンなどの「鳴り続けている低音」を学習して差し引く。
