@@ -148,7 +148,7 @@
       <div class="toggle-thumb"></div>
     </label>
   </div>
-  <p class="setting-note">音声認識はChrome/Edgeで動作します（Safari・Firefoxは未対応）</p>
+  <p class="setting-note">音声認識はChrome/Edgeで動作します（Safari・Firefoxは未対応）。Androidは最新版のChromeが必要です</p>
   <div class="toggle-row" style="margin-bottom:0">
     <span class="setting-label" style="margin:0">帯域インジケーター</span>
     <label class="toggle-switch">
@@ -217,12 +217,14 @@ window.addEventListener('resize', resize);
 
 // ---- Audio ----
 let analyser, dataArray, audioCtx;
+let micStream = null;
 let isActive = false;
 let volume   = 0;
 
 async function startAudio() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
+    micStream = stream;
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const source = audioCtx.createMediaStreamSource(stream);
     analyser = audioCtx.createAnalyser();
@@ -314,20 +316,50 @@ class FloatingText {
 }
 
 // ---- Web Speech API ----
+// 【Android対策】Android ChromeではgetUserMedia（ビジュアライザー）と
+// SpeechRecognitionがマイクを同時に掴めない制限がある。
+// 対応ブラウザ（Chrome 139+）では既存マイクのトラックを認識エンジンに
+// 直接渡して共有することで競合を回避する。未対応ブラウザでは引数は
+// 無視され、従来どおりマイクからの認識を試みる。
 let recognition = null;
+let speechRestartTimer = null;
+let speechTrack = null;      // 認識用に複製したトラック
+let speechStartTime = 0;
+let speechGotResult = false;
+let speechFailCount = 0;     // 結果なし即終了の連続回数（暴走再起動の防止）
+
+function tryStartRecognition() {
+  if (!recognition) return;
+  speechGotResult = false;
+  speechStartTime = Date.now();
+  // 前回の複製トラックを破棄
+  if (speechTrack) { try { speechTrack.stop(); } catch(e) {} speechTrack = null; }
+  try {
+    const track = micStream ? micStream.getAudioTracks()[0] : null;
+    if (track && track.readyState === 'live') {
+      speechTrack = track.clone();
+      recognition.start(speechTrack); // MediaStreamTrack入力（対応ブラウザのみ有効）
+    } else {
+      recognition.start();
+    }
+  } catch (err) {
+    try { recognition.start(); } catch(e) {}
+  }
+}
 
 function startSpeech() {
-  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-    console.warn('SpeechRecognition not supported');
-    return;
-  }
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { console.warn('SpeechRecognition not supported'); return; }
+  if (recognition) return;
+
   recognition = new SR();
   recognition.lang = 'ja-JP';
   recognition.continuous = true;
   recognition.interimResults = true;
 
   recognition.onresult = (e) => {
+    speechGotResult = true;
+    speechFailCount = 0;
     for (let i = e.resultIndex; i < e.results.length; i++) {
       if (e.results[i].isFinal) {
         const t = e.results[i][0].transcript.trim();
@@ -336,17 +368,49 @@ function startSpeech() {
     }
   };
 
-  recognition.onend = () => {
-    if (isActive && speechToggle.checked) {
-      try { recognition.start(); } catch(e) {}
+  recognition.onerror = (e) => {
+    // 'no-speech' / 'aborted' / 'audio-capture' はonend側の再起動に任せる
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      showSpeechError('音声認識を開始できませんでした（権限または非対応ブラウザの可能性）');
+      speechToggle.checked = false;
+      stopSpeech();
     }
   };
 
-  try { recognition.start(); } catch(e) {}
+  recognition.onend = () => {
+    if (!isActive || !speechToggle.checked || !recognition) return;
+    // 結果が一度も得られず2秒未満で終了 → マイク競合の典型症状としてカウント
+    const dur = Date.now() - speechStartTime;
+    if (!speechGotResult && dur < 2000) speechFailCount++;
+    if (speechFailCount >= 5) {
+      showSpeechError('この端末ではビジュアライザーと音声認識の同時利用が制限されているようです。Chromeを最新版に更新するとご利用いただける場合があります');
+      speechToggle.checked = false;
+      stopSpeech();
+      return;
+    }
+    // Androidでは即時再起動が失敗しやすいため少し待つ
+    clearTimeout(speechRestartTimer);
+    speechRestartTimer = setTimeout(tryStartRecognition, 500);
+  };
+
+  tryStartRecognition();
 }
 
 function stopSpeech() {
-  if (recognition) { recognition.stop(); recognition = null; }
+  clearTimeout(speechRestartTimer);
+  speechFailCount = 0;
+  if (speechTrack) { try { speechTrack.stop(); } catch(e) {} speechTrack = null; }
+  if (recognition) {
+    recognition.onend = null; // 自動再起動を止める
+    try { recognition.stop(); } catch(e) {}
+    recognition = null;
+  }
+}
+
+function showSpeechError(msg) {
+  errMsg.textContent = msg;
+  errMsg.style.display = 'block';
+  setTimeout(() => { errMsg.style.display = 'none'; }, 6000);
 }
 
 speechToggle.addEventListener('change', () => {
