@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>HapticBloom — 触圧フィードバック</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15121F;
+    --bg-2:#1C1830;
+    --surface:#231E38;
+    --surface-hi:#2C2647;
+    --line:#352E55;
+    --text:#ECE8F7;
+    --muted:#9089AD;
+    --cyan:79,214,224;     /* 弱 */
+    --coral:255,122,89;    /* 強 */
+    --press: 79,214,224;   /* JSで補間 */
+    --radius:22px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    background:
+      radial-gradient(120% 80% at 50% -10%, rgba(var(--press),.10), transparent 60%),
+      var(--bg);
+    color:var(--text);
+    font-family:"Noto Sans JP",system-ui,sans-serif;
+    display:flex;justify-content:center;
+    min-height:100dvh;
+    transition:background .25s ease;
+    overflow-x:hidden;
+  }
+  .app{width:100%;max-width:440px;padding:22px 20px 30px;display:flex;flex-direction:column;gap:18px;}
+
+  /* ---- header ---- */
+  header{display:flex;flex-direction:column;gap:10px;}
+  .brand{display:flex;align-items:baseline;gap:10px;}
+  .brand h1{
+    font-family:"Space Grotesk",sans-serif;
+    font-weight:700;font-size:26px;letter-spacing:-.02em;
+  }
+  .brand h1 .bloom{color:rgb(var(--press));transition:color .2s;}
+  .brand .jp{font-size:12px;color:var(--muted);font-weight:500;}
+  .badges{display:flex;gap:8px;flex-wrap:wrap;}
+  .badge{
+    font-family:"JetBrains Mono",monospace;font-size:10.5px;
+    padding:4px 9px;border-radius:999px;border:1px solid var(--line);
+    color:var(--muted);background:var(--surface);
+    display:inline-flex;align-items:center;gap:5px;
+  }
+  .badge .dot{width:6px;height:6px;border-radius:50%;background:var(--muted);}
+  .badge.ok .dot{background:#5BE0A8;}
+  .badge.ok{color:#9ff0cf;border-color:#2c5a48;}
+  .badge.no .dot{background:#ff6b6b;}
+  .badge.no{color:#ffb3b3;border-color:#6a3030;}
+
+  /* ---- pad (hero) ---- */
+  .pad-wrap{position:relative;display:flex;justify-content:center;}
+  .pad{
+    position:relative;width:100%;aspect-ratio:1;max-width:380px;
+    border-radius:var(--radius);
+    background:
+      radial-gradient(80% 80% at 50% 45%, rgba(var(--press),.05), transparent 70%),
+      linear-gradient(160deg,var(--bg-2),#120F1C);
+    border:1px solid var(--line);
+    touch-action:none;cursor:pointer;overflow:hidden;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.04), 0 18px 40px -24px rgba(0,0,0,.8);
+    transition:border-color .15s, box-shadow .15s;
+  }
+  .pad.active{
+    border-color:rgba(var(--press),.5);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.06),
+               0 0 0 1px rgba(var(--press),.25),
+               0 0 48px -6px rgba(var(--press),.4);
+  }
+  .pad canvas{position:absolute;inset:0;width:100%;height:100%;display:block;}
+
+  /* HUD chip（指で隠れない左上） */
+  .hud{
+    position:absolute;top:13px;left:13px;z-index:2;pointer-events:none;
+    display:flex;flex-direction:column;gap:2px;
+    padding:8px 12px;border-radius:14px;
+    background:rgba(18,15,28,.55);border:1px solid var(--line);
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  }
+  .hud .val{
+    font-family:"JetBrains Mono",monospace;font-weight:700;font-size:24px;line-height:1;
+    color:var(--text);font-variant-numeric:tabular-nums;
+  }
+  .hud .val .pct{font-size:13px;color:var(--muted);margin-left:1px;}
+  .hud .lvl{
+    font-family:"Space Grotesk";font-weight:600;font-size:10.5px;
+    letter-spacing:.16em;text-transform:uppercase;color:rgb(var(--press));transition:color .2s;
+  }
+
+  .pad-hint{
+    position:absolute;bottom:16px;left:0;right:0;text-align:center;z-index:2;
+    font-size:12px;color:var(--muted);pointer-events:none;transition:opacity .2s;
+  }
+  .pad.active .pad-hint{opacity:0;}
+
+  /* ---- meter ---- */
+  .meter{display:flex;flex-direction:column;gap:8px;}
+  .meter-bar{
+    position:relative;height:12px;border-radius:999px;
+    background:var(--surface);overflow:hidden;border:1px solid var(--line);
+  }
+  .meter-fill{
+    position:absolute;inset:0;width:0%;border-radius:999px;
+    background:linear-gradient(90deg, rgb(var(--cyan)), rgb(var(--coral)));
+    transition:width .06s linear;
+  }
+  .meter-peak{
+    position:absolute;top:-3px;bottom:-3px;width:2px;left:0%;
+    background:var(--text);opacity:.7;border-radius:2px;transition:left .1s;
+  }
+  .meter-ticks{display:flex;justify-content:space-between;font-family:"JetBrains Mono";font-size:10px;color:var(--muted);}
+
+  /* ---- settings ---- */
+  .panel{
+    background:var(--surface);border:1px solid var(--line);
+    border-radius:var(--radius);overflow:hidden;
+  }
+  .panel-head{
+    width:100%;display:flex;align-items:center;justify-content:space-between;
+    padding:14px 16px;background:none;border:none;color:var(--text);
+    font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;
+  }
+  .panel-head .chev{transition:transform .2s;color:var(--muted);}
+  .panel.open .panel-head .chev{transform:rotate(180deg);}
+  .panel-body{display:none;flex-direction:column;padding:4px 16px 16px;gap:18px;}
+  .panel.open .panel-body{display:flex;}
+
+  .row{display:flex;align-items:center;justify-content:space-between;gap:14px;}
+  .row .label{font-size:13.5px;}
+  .row .sub{font-size:11px;color:var(--muted);margin-top:2px;}
+
+  /* switch */
+  .switch{position:relative;width:46px;height:26px;flex:none;}
+  .switch input{opacity:0;width:0;height:0;}
+  .switch .track{
+    position:absolute;inset:0;background:var(--surface-hi);
+    border:1px solid var(--line);border-radius:999px;transition:.2s;
+  }
+  .switch .track::after{
+    content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;
+    border-radius:50%;background:var(--muted);transition:.2s;
+  }
+  .switch input:checked + .track{background:rgba(var(--press),.25);border-color:rgb(var(--press));}
+  .switch input:checked + .track::after{transform:translateX(20px);background:rgb(var(--press));}
+
+  /* slider */
+  input[type=range]{
+    -webkit-appearance:none;width:120px;height:4px;border-radius:999px;
+    background:var(--surface-hi);outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:18px;height:18px;border-radius:50%;
+    background:rgb(var(--press));cursor:pointer;border:2px solid var(--bg);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:18px;height:18px;border-radius:50%;background:rgb(var(--press));
+    cursor:pointer;border:2px solid var(--bg);
+  }
+
+  /* segmented */
+  .seg{display:flex;gap:6px;width:100%;}
+  .seg button{
+    flex:1;padding:9px 4px;border-radius:12px;border:1px solid var(--line);
+    background:var(--surface-hi);color:var(--muted);
+    font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;transition:.15s;
+  }
+  .seg button.on{
+    border-color:rgb(var(--press));color:var(--text);
+    background:rgba(var(--press),.14);
+  }
+  .seg-label{font-size:11px;color:var(--muted);margin-bottom:8px;}
+
+  /* note */
+  .note{
+    font-size:11.5px;line-height:1.7;color:var(--muted);
+    padding:14px 16px;background:var(--surface);border:1px solid var(--line);
+    border-radius:var(--radius);
+  }
+  .note b{color:var(--text);font-weight:500;}
+
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);}
+
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none!important;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="brand">
+      <h1>Haptic<span class="bloom">Bloom</span></h1>
+      <span class="jp">触圧フィードバック</span>
+    </div>
+    <div class="badges">
+      <span class="badge" id="badgeInput"><span class="dot"></span><span id="inputName">入力待ち</span></span>
+      <span class="badge" id="badgeVibe"><span class="dot"></span><span id="vibeName">振動確認中</span></span>
+    </div>
+  </header>
+
+  <div class="pad-wrap">
+    <div class="pad" id="pad" role="button" aria-label="押して触圧フィードバックを試す" tabindex="0">
+      <canvas id="grid"></canvas>
+      <div class="hud">
+        <span class="val"><span id="pVal">0</span><span class="pct">%</span></span>
+        <span class="lvl" id="pLvl">— — —</span>
+      </div>
+      <div class="pad-hint">ここを押してください</div>
+    </div>
+  </div>
+
+  <div class="meter">
+    <div class="meter-bar">
+      <div class="meter-fill" id="fill"></div>
+      <div class="meter-peak" id="peak"></div>
+    </div>
+    <div class="meter-ticks"><span>弱</span><span>中</span><span>強</span></div>
+  </div>
+
+  <div class="panel" id="panel">
+    <button class="panel-head" id="panelHead" aria-expanded="false">
+      <span>設定</span>
+      <span class="chev">⌄</span>
+    </button>
+    <div class="panel-body">
+
+      <div class="row">
+        <div>
+          <div class="label">バイブレーション</div>
+          <div class="sub">押している間フィードバックします</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="vibeToggle" checked>
+          <span class="track"></span>
+        </label>
+      </div>
+
+      <div class="row">
+        <div>
+          <div class="label">感度</div>
+          <div class="sub">弱く押しても反応しやすくなります</div>
+        </div>
+        <input type="range" id="sens" min="0.6" max="2.2" step="0.1" value="1.2">
+      </div>
+
+      <div>
+        <div class="seg-label">入力モード</div>
+        <div class="seg" id="modeSeg">
+          <button data-mode="auto" class="on">自動</button>
+          <button data-mode="pen">ペン筆圧</button>
+          <button data-mode="area">接触面積</button>
+          <button data-mode="hold">長押し</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <p class="note">
+    <b>仕組みについて：</b> Web の振動機能は強さ（振幅）を変えられないため、強く押すほど振動パルスを密に連打して強さを表現しています。
+    レベルが上がる瞬間には確認の振動（ディテント）が入ります。<br>
+    <b>対応状況：</b> Android Chrome で振動します。S-Pen は本物の筆圧、指は接触面積で強さを推定します。
+    iOS Safari は振動に非対応のため、視覚フィードバックのみになります。
+  </p>
+
+  <div class="sr-only" id="live" aria-live="polite"></div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---- elements
+  const pad=document.getElementById('pad');
+  const cv=document.getElementById('grid');
+  const ctx=cv.getContext('2d');
+  const pVal=document.getElementById('pVal'), pLvl=document.getElementById('pLvl');
+  const fill=document.getElementById('fill'), peakEl=document.getElementById('peak');
+  const live=document.getElementById('live');
+  const root=document.documentElement;
+
+  const inputName=document.getElementById('inputName'), badgeInput=document.getElementById('badgeInput');
+  const vibeName=document.getElementById('vibeName'), badgeVibe=document.getElementById('badgeVibe');
+
+  // ---- state
+  let pressing=false;
+  let target=0;       // 入力からの生圧 (0-1) / null=長押しランプ
+  let display=0;      // 表示用の補間値
+  let peak=0;
+  let lastLevel=-1;
+  let pressStart=0;
+  let mode='auto';
+  let vibeOn=true;
+  let sens=1.2;
+  let pulseTimer=null;
+
+  // touch position（CSSピクセル, pad内）
+  let rawX=0, rawY=0;     // 入力点
+  let dtX=0, dtY=0;       // 描画用の追従点
+
+  // 格子
+  let S=0, dpr=1, gap=0;
+  const N=20;             // セル数
+  const PULL=0.55;        // 凹みの収束強さ
+  const shocks=[];        // レベルアップ時の波紋
+
+  const LEVELS=['弱 · LIGHT','中 · MEDIUM','強 · STRONG'];
+  const CYAN=[79,214,224], CORAL=[255,122,89], LAV=[150,140,200];
+  let pr=CYAN[0], pg=CYAN[1], pb=CYAN[2];   // 現在の圧力カラー
+
+  const canVibrate = 'vibrate' in navigator;
+  vibeName.textContent = canVibrate ? '振動 対応' : '振動 非対応';
+  badgeVibe.classList.add(canVibrate ? 'ok' : 'no');
+  if(!canVibrate){ vibeOn=false; document.getElementById('vibeToggle').checked=false; }
+
+  // ---- helpers
+  function levelOf(p){ return p<0.34?0 : p<0.67?1 : 2; }
+  function lerp(a,b,t){ return a+(b-a)*t; }
+  function setPressColor(p){
+    pr=Math.round(lerp(CYAN[0],CORAL[0],p));
+    pg=Math.round(lerp(CYAN[1],CORAL[1],p));
+    pb=Math.round(lerp(CYAN[2],CORAL[2],p));
+    root.style.setProperty('--press', pr+','+pg+','+pb);
+  }
+  function showInput(type){
+    const map={pen:'S-Pen 筆圧',touch:'タッチ（面積）',mouse:'マウス（長押し）'};
+    inputName.textContent=map[type]||type;
+    badgeInput.classList.add('ok');
+  }
+
+  // ---- canvas sizing
+  function resize(){
+    const r=pad.getBoundingClientRect();
+    S=r.width; dpr=Math.min(window.devicePixelRatio||1,3);
+    cv.width=Math.round(S*dpr); cv.height=Math.round(S*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    gap=S/N;
+    if(dtX===0&&dtY===0){ dtX=rawX=S/2; dtY=rawY=S/2; }
+  }
+  if('ResizeObserver' in window){ new ResizeObserver(resize).observe(pad); }
+  window.addEventListener('resize',resize);
+
+  function posFromEvent(e){
+    const r=pad.getBoundingClientRect();
+    rawX=Math.max(0,Math.min(S, e.clientX-r.left));
+    rawY=Math.max(0,Math.min(S, e.clientY-r.top));
+  }
+
+  // ---- read pressure
+  function readPressure(e){
+    const t=e.pointerType||'touch';
+    let m=mode;
+    if(m==='auto'){ m = t==='pen' ? 'pen' : t==='mouse' ? 'hold' : 'area'; }
+    if(m==='pen'){ return e.pressure>0 ? e.pressure : 0.5; }
+    if(m==='area'){
+      const area=(e.width||0)*(e.height||0);
+      if(area>0) return Math.min(1, area/2600);
+      if(e.pressure>0 && e.pressure!==0.5) return e.pressure;
+      return null;
+    }
+    return null; // hold
+  }
+
+  // ---- vibration（強さ＝パルス密度）
+  function startPulse(){
+    if(!vibeOn||!canVibrate) return;
+    stopPulse();
+    const loop=function(){
+      if(!pressing||!vibeOn) return;
+      const p=display;
+      const len=Math.round(8+p*34);
+      try{ navigator.vibrate(len); }catch(_){}
+      const idle=Math.round(130-p*108);
+      pulseTimer=setTimeout(loop, len+Math.max(14,idle));
+    };
+    loop();
+  }
+  function stopPulse(){ if(pulseTimer){ clearTimeout(pulseTimer); pulseTimer=null; } }
+  function detent(){
+    if(vibeOn && canVibrate){ try{ navigator.vibrate([0,26,34,26]); }catch(_){} }
+    shocks.push({x:dtX,y:dtY,age:0});
+  }
+
+  // ---- draw the grid with a dent
+  function draw(){
+    ctx.clearRect(0,0,S,S);
+    const p=display;
+    const tx=dtX, ty=dtY;
+    const sigma=S*0.26, s2=2*sigma*sigma;
+
+    // 底の発光
+    if(p>0.012){
+      const g=ctx.createRadialGradient(tx,ty,0,tx,ty,sigma*1.75);
+      g.addColorStop(0, 'rgba('+pr+','+pg+','+pb+','+(0.40*p)+')');
+      g.addColorStop(0.5,'rgba('+pr+','+pg+','+pb+','+(0.14*p)+')');
+      g.addColorStop(1, 'rgba('+pr+','+pg+','+pb+',0)');
+      ctx.fillStyle=g;
+      ctx.beginPath(); ctx.arc(tx,ty,sigma*1.75,0,Math.PI*2); ctx.fill();
+    }
+
+    // 頂点の変位を計算
+    const X=[], Y=[], W=[];
+    for(let j=0;j<=N;j++){
+      X[j]=[]; Y[j]=[]; W[j]=[];
+      for(let i=0;i<=N;i++){
+        const vx=i*gap, vy=j*gap;
+        const ddx=vx-tx, ddy=vy-ty;
+        const w=Math.exp(-(ddx*ddx+ddy*ddy)/s2);   // 0..1
+        const k=PULL*w*p;                            // 触点へ収束
+        X[j][i]=vx-ddx*k;
+        Y[j][i]=vy-ddy*k;
+        W[j][i]=w;
+      }
+    }
+
+    // 格子線
+    ctx.lineWidth=1;
+    ctx.strokeStyle='rgba(150,140,200,0.17)';
+    for(let j=0;j<=N;j++){
+      ctx.beginPath();
+      for(let i=0;i<=N;i++){ i? ctx.lineTo(X[j][i],Y[j][i]) : ctx.moveTo(X[j][i],Y[j][i]); }
+      ctx.stroke();
+    }
+    for(let i=0;i<=N;i++){
+      ctx.beginPath();
+      for(let j=0;j<=N;j++){ j? ctx.lineTo(X[j][i],Y[j][i]) : ctx.moveTo(X[j][i],Y[j][i]); }
+      ctx.stroke();
+    }
+
+    // 頂点ドット（井戸の縁で発光）
+    for(let j=0;j<=N;j++){
+      for(let i=0;i<=N;i++){
+        const w=W[j][i];
+        const t=Math.min(1,w*1.4);
+        const r=1.0 + w*p*2.6;
+        const cr=Math.round(lerp(LAV[0],pr,t)), cg=Math.round(lerp(LAV[1],pg,t)), cb=Math.round(lerp(LAV[2],pb,t));
+        const a=0.22 + w*p*0.6;
+        ctx.fillStyle='rgba('+cr+','+cg+','+cb+','+a+')';
+        ctx.beginPath(); ctx.arc(X[j][i],Y[j][i],r,0,Math.PI*2); ctx.fill();
+      }
+    }
+
+    // 波紋（ディテント）
+    for(let s=shocks.length-1;s>=0;s--){
+      const sk=shocks[s];
+      sk.age+=0.045;
+      if(sk.age>=1){ shocks.splice(s,1); continue; }
+      const rad=sk.age*S*0.85;
+      ctx.lineWidth=2*(1-sk.age)+0.4;
+      ctx.strokeStyle='rgba('+pr+','+pg+','+pb+','+(0.5*(1-sk.age))+')';
+      ctx.beginPath(); ctx.arc(sk.x,sk.y,rad,0,Math.PI*2); ctx.stroke();
+    }
+  }
+
+  // ---- main loop
+  function frame(){
+    // 圧力の補間
+    if(pressing && target===null){
+      const held=(performance.now()-pressStart)/1000;
+      display=Math.min(1, held/1.1);
+    }else{
+      const goal=(target===null?display:target);
+      display += (goal-display)*0.35;
+      if(!pressing) display += (0-display)*0.25;
+    }
+    if(display<0.003 && !pressing) display=0;
+
+    // 触点の追従
+    dtX += (rawX-dtX)*0.4;
+    dtY += (rawY-dtY)*0.4;
+
+    setPressColor(display);
+    draw();
+
+    // HUD / meter
+    const pct=Math.round(display*100);
+    pVal.textContent=pct;
+    fill.style.width=pct+'%';
+    if(pressing && display>peak){ peak=display; peakEl.style.left=(peak*100)+'%'; }
+
+    if(pressing){
+      const lv=levelOf(display);
+      pLvl.textContent=LEVELS[lv];
+      if(lv>lastLevel && lastLevel!==-1){ detent(); }
+      if(lv!==lastLevel){ live.textContent=LEVELS[lv].split(' ')[0]; lastLevel=lv; }
+    }else if(display===0){
+      pLvl.textContent='— — —';
+    }
+
+    requestAnimationFrame(frame);
+  }
+  resize();
+  requestAnimationFrame(frame);
+
+  // ---- pointer events
+  function onDown(e){
+    pressing=true; peak=0; peakEl.style.left='0%'; lastLevel=-1;
+    pressStart=performance.now();
+    pad.classList.add('active');
+    showInput(e.pointerType||'touch');
+    posFromEvent(e);
+    dtX=rawX; dtY=rawY;            // 触点へスナップ
+    target=readPressure(e);
+    try{ pad.setPointerCapture(e.pointerId); }catch(_){}
+    startPulse();
+    e.preventDefault();
+  }
+  function onMove(e){
+    if(!pressing) return;
+    posFromEvent(e);
+    target=readPressure(e);
+    e.preventDefault();
+  }
+  function onUp(e){
+    if(!pressing) return;
+    pressing=false; target=0;
+    pad.classList.remove('active');
+    stopPulse();
+    if(canVibrate){ try{ navigator.vibrate(0); }catch(_){} }
+    live.textContent='はなしました';
+  }
+
+  pad.addEventListener('pointerdown',onDown);
+  pad.addEventListener('pointermove',onMove);
+  pad.addEventListener('pointerup',onUp);
+  pad.addEventListener('pointercancel',onUp);
+  pad.addEventListener('pointerleave',function(e){ if(pressing && e.pointerType!=='touch') onUp(e); });
+
+  // keyboard（スペース/Enterで中央を疑似プレス）
+  pad.addEventListener('keydown',function(e){
+    if((e.key===' '||e.key==='Enter') && !pressing){
+      pressing=true; target=null; pressStart=performance.now(); lastLevel=-1; peak=0;
+      rawX=S/2; rawY=S/2; dtX=rawX; dtY=rawY;
+      pad.classList.add('active'); showInput('mouse'); startPulse(); e.preventDefault();
+    }
+  });
+  pad.addEventListener('keyup',function(e){
+    if(e.key===' '||e.key==='Enter'){ onUp({pointerType:'mouse'}); }
+  });
+
+  // ---- settings
+  document.getElementById('vibeToggle').addEventListener('change',function(e){
+    vibeOn=e.target.checked && canVibrate;
+    if(!vibeOn) stopPulse(); else if(pressing) startPulse();
+  });
+  document.getElementById('sens').addEventListener('input',function(e){ sens=parseFloat(e.target.value); });
+
+  const _read=readPressure;
+  readPressure=function(e){
+    let v=_read(e);
+    if(v===null) return null;
+    return Math.max(0,Math.min(1, v*sens));
+  };
+
+  document.getElementById('modeSeg').addEventListener('click',function(e){
+    const b=e.target.closest('button'); if(!b) return;
+    mode=b.dataset.mode;
+    [...this.children].forEach(c=>c.classList.toggle('on',c===b));
+  });
+
+  const panel=document.getElementById('panel');
+  document.getElementById('panelHead').addEventListener('click',function(){
+    const open=panel.classList.toggle('open');
+    this.setAttribute('aria-expanded', open);
+  });
+})();
+</script>
+</body>
+</html>
